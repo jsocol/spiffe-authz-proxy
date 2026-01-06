@@ -13,6 +13,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"jsocol.io/middleware/logging"
 
+	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/handlers"
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
@@ -62,7 +63,9 @@ func (stc *SVIDTLSConfig) GetConfig() *tls.Config {
 
 func main() {
 	// shutdownCh := make(chan struct{})
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{}))
+	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})
+	logger := slog.New(logHandler)
+	slog.SetDefault(logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -76,13 +79,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	up, err := upstream.New()
+	up, err := upstream.New(
+		upstream.WithTCP("127.0.0.1", "5005"),
+	)
 	if err != nil {
 		logger.Error("could not create upstream", "error", err)
 		os.Exit(2)
 	}
 
-	proxy := handlers.NewProxy(handlers.WithUpstream(up))
+	authz := authorizer.NewMemoryAuthorizer()
+
+	proxy := handlers.NewProxy(
+		handlers.WithUpstream(up),
+		handlers.WithLogger(logger),
+		handlers.WithAuthorizer(authz),
+	)
 
 	cfger := &SVIDTLSConfig{
 		logger: logger,
