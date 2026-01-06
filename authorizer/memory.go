@@ -12,10 +12,14 @@ type MemoryAuthorizer struct {
 	routes map[spiffeid.ID][]Route
 }
 
+func NewMemoryAuthorizer() *MemoryAuthorizer {
+	return &MemoryAuthorizer{}
+}
+
 func (a *MemoryAuthorizer) Authorize(_ context.Context, spid spiffeid.ID, method, path string) error {
 	routes, ok := a.routes[spid]
 	if !ok {
-		return fmt.Errorf("spiffeid %s is not authorized on any routes", spid)
+		return fmt.Errorf("unknown spiffeid %s", spid)
 	}
 
 	for _, r := range routes {

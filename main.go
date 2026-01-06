@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -11,10 +10,10 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
-	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"jsocol.io/middleware/logging"
+	"jsocol.io/spiffe-authz-proxy/handlers"
 	"jsocol.io/spiffe-authz-proxy/spiffeidutil"
 )
 
@@ -51,61 +50,6 @@ func (u *Upstream) Do(r *http.Request) (*http.Response, error) {
 	}
 
 	return c.Do(req)
-}
-
-type proxyAuthorizer interface {
-	Authorize(ctx context.Context, spid spiffeid.ID, method, path string) error
-}
-
-type Proxy struct {
-	// authz is a map
-	authz    proxyAuthorizer
-	logger   *slog.Logger
-	upstream *Upstream
-}
-
-func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	clientCert := r.TLS.PeerCertificates[0]
-	if len(clientCert.URIs) != 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		p.logger.DebugContext(ctx, "could not identify spiffeid")
-		return
-	}
-
-	san := clientCert.URIs[0]
-	spID, err := spiffeid.FromURI(san)
-	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		p.logger.DebugContext(ctx, "could not parse uri into spiffeid", "uri", san)
-		return
-	}
-
-	ctx = spiffeidutil.WithSPIFFEID(ctx, spID)
-
-	err = p.authz.Authorize(ctx, spID, r.Method, r.URL.Path)
-	if err != nil {
-		w.WriteHeader(http.StatusForbidden)
-		p.logger.DebugContext(ctx, "unauthorized", "spid", spID, "error", err)
-		return
-	}
-
-	resp, err := p.upstream.Do(r)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		p.logger.ErrorContext(ctx, "error connecting to upstream", "error", err)
-		return
-	}
-
-	for header, values := range resp.Header {
-		for _, v := range values {
-			r.Header.Add(header, v)
-		}
-	}
-
-	w.WriteHeader(resp.StatusCode)
-	_, _ = io.Copy(w, resp.Body)
 }
 
 type sourcer interface {
@@ -168,13 +112,8 @@ func main() {
 	}
 
 	upstream := &Upstream{}
-	proxy := &Proxy{
-		logger:   logger,
-		upstream: upstream,
-	}
-
-	mux := http.NewServeMux()
-	mux.Handle("/", proxy)
+	_ = upstream
+	proxy := handlers.NewProxy()
 
 	cfger := &SVIDTLSConfig{
 		logger: logger,
@@ -185,7 +124,7 @@ func main() {
 	srv := &http.Server{
 		Addr:                         bindAddr,
 		DisableGeneralOptionsHandler: true,
-		Handler:                      logging.Wrap(mux, logging.WithLogger(logger)),
+		Handler:                      logging.Wrap(proxy, logging.WithLogger(logger)),
 		TLSConfig:                    cfger.GetConfig(),
 	}
 
