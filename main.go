@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"time"
@@ -13,44 +12,10 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"jsocol.io/middleware/logging"
+
 	"jsocol.io/spiffe-authz-proxy/handlers"
-	"jsocol.io/spiffe-authz-proxy/spiffeidutil"
+	"jsocol.io/spiffe-authz-proxy/upstream"
 )
-
-type Upstream struct {
-	// scheme string
-	// host   string
-	// port   string
-}
-
-// TODO: Handle different types of upstreams, TCP or Unix
-func (u *Upstream) GetTransport() *http.Transport {
-	dialer := &net.Dialer{}
-	return &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return dialer.DialContext(ctx, "unix", "/some/path")
-		},
-	}
-}
-
-func (u *Upstream) Do(r *http.Request) (*http.Response, error) {
-	t := u.GetTransport()
-
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
-	req := r.WithContext(ctx)
-
-	spid := spiffeidutil.FromContext(ctx)
-	if !spid.IsZero() {
-		req.Header.Set("SPIFFE-ID", spid.String())
-	}
-
-	c := &http.Client{
-		Transport: t,
-	}
-
-	return c.Do(req)
-}
 
 type sourcer interface {
 	x509svid.Source
@@ -111,8 +76,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	upstream := &Upstream{}
-	_ = upstream
+	up, err := upstream.New()
+	if err != nil {
+		logger.Error("could not create upstream", "error", err)
+		os.Exit(2)
+	}
+	_ = up
 	proxy := handlers.NewProxy()
 
 	cfger := &SVIDTLSConfig{
