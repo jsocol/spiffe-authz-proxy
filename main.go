@@ -81,8 +81,8 @@ func main() {
 		logger.Error("could not create upstream", "error", err)
 		os.Exit(2)
 	}
-	_ = up
-	proxy := handlers.NewProxy()
+
+	proxy := handlers.NewProxy(handlers.WithUpstream(up))
 
 	cfger := &SVIDTLSConfig{
 		logger: logger,

@@ -25,8 +25,16 @@ type Proxy struct {
 	upstream upstreamer
 }
 
-func NewProxy() *Proxy {
-	return &Proxy{}
+func NewProxy(opts ...ProxyOption) *Proxy {
+	p := &Proxy{
+		logger: slog.Default(),
+	}
+
+	for _, opt := range opts {
+		opt(p)
+	}
+
+	return p
 }
 
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -78,5 +86,25 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {
 		logger.ErrorContext(ctx, "failed to write response", "error", err)
+	}
+}
+
+type ProxyOption func(*Proxy)
+
+func WithLogger(l *slog.Logger) ProxyOption {
+	return func(p *Proxy) {
+		p.logger = l
+	}
+}
+
+func WithAuthorizer(a proxyAuthorizer) ProxyOption {
+	return func(p *Proxy) {
+		p.authz = a
+	}
+}
+
+func WithUpstream(u upstreamer) ProxyOption {
+	return func(p *Proxy) {
+		p.upstream = u
 	}
 }
