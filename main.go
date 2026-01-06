@@ -3,13 +3,11 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
@@ -17,23 +15,8 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"jsocol.io/middleware/logging"
+	"jsocol.io/spiffe-authz-proxy/spiffeidutil"
 )
-
-type ctxKey string
-
-const spidKey ctxKey = "spiffeid"
-
-func WithSPIFFEID(ctx context.Context, spID spiffeid.ID) context.Context {
-	return context.WithValue(ctx, spidKey, spID)
-}
-
-func FromContext(ctx context.Context) spiffeid.ID {
-	val := ctx.Value(spidKey)
-	if spID, ok := val.(spiffeid.ID); ok {
-		return spID
-	}
-	return spiffeid.ID{}
-}
 
 type Upstream struct {
 	// scheme string
@@ -58,61 +41,16 @@ func (u *Upstream) Do(r *http.Request) (*http.Response, error) {
 	defer cancel()
 	req := r.WithContext(ctx)
 
-	spid := FromContext(ctx)
-	req.Header.Set("SPIFFE-ID", spid.String())
+	spid := spiffeidutil.FromContext(ctx)
+	if !spid.IsZero() {
+		req.Header.Set("SPIFFE-ID", spid.String())
+	}
 
 	c := &http.Client{
 		Transport: t,
 	}
 
 	return c.Do(req)
-}
-
-type Route struct {
-	Method string
-	Path   string
-}
-
-func (r *Route) Match(method, path string) bool {
-	if r.Method != method {
-		return false
-	}
-	parts := strings.Split(r.Path, "/")
-	lastPart := len(parts) - 1
-
-	if parts[0] == "*" {
-		return true
-	}
-
-	for i, scope := range strings.Split(path, "/") {
-		if i > lastPart {
-			return parts[lastPart] == "*"
-		}
-		if !(parts[i] == "*" || parts[i] == scope) {
-			return false
-		}
-	}
-
-	return true
-}
-
-type MemoryAuthorizer struct {
-	// TODO: This is terribly inefficient and probably needs improvement
-	routes map[spiffeid.ID][]Route
-}
-
-func (a *MemoryAuthorizer) Authorize(_ context.Context, spid spiffeid.ID, method, path string) error {
-	routes, ok := a.routes[spid]
-	if !ok {
-		return fmt.Errorf("spiffeid %s is not authorized on any routes", spid)
-	}
-
-	for _, r := range routes {
-		if r.Match(method, path) {
-			return nil
-		}
-	}
-	return fmt.Errorf("spiffeid %s is not authorized for method %s on path %s", spid, method, path)
 }
 
 type proxyAuthorizer interface {
@@ -144,7 +82,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx = WithSPIFFEID(ctx, spID)
+	ctx = spiffeidutil.WithSPIFFEID(ctx, spID)
 
 	err = p.authz.Authorize(ctx, spID, r.Method, r.URL.Path)
 	if err != nil {
