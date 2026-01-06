@@ -107,37 +107,10 @@ func (a *MemoryAuthorizer) Authorize(_ context.Context, spid spiffeid.ID, method
 		return fmt.Errorf("spiffeid %s is not authorized on any routes", spid)
 	}
 
-routeLoop:
 	for _, r := range routes {
-		if r.Method != method {
-			continue
-		}
-
-		rsegments := strings.Split(r.Path, "/")
-		psegments := strings.Split(path, "/")
-		if len(psegments) < len(rsegments) {
-			continue
-		}
-
-		lastPart := len(rsegments) - 1
-
-		if rsegments[0] == "*" {
+		if r.Match(method, path) {
 			return nil
 		}
-
-		for i, scope := range psegments {
-			if i > lastPart {
-				if rsegments[lastPart] == "*" {
-					return nil
-				}
-				continue routeLoop
-			}
-			if !(rsegments[i] == "*" || rsegments[i] == scope) { //lint:ignore QF1001 this is clearer
-				continue routeLoop
-			}
-		}
-
-		return nil
 	}
 	return fmt.Errorf("spiffeid %s is not authorized for method %s on path %s", spid, method, path)
 }
