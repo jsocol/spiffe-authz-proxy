@@ -2,76 +2,42 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
+	"sync"
 	"time"
 
-	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
-	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"jsocol.io/middleware/logging"
 
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/handlers"
+	"jsocol.io/spiffe-authz-proxy/tlsconfig"
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
 
-type sourcer interface {
-	x509svid.Source
-	x509bundle.Source
-}
-
-type SVIDTLSConfig struct {
-	logger *slog.Logger
-	source sourcer
-}
-
-func (stc *SVIDTLSConfig) GetConfig() *tls.Config {
-	return &tls.Config{
-		GetCertificate: func(chi *tls.ClientHelloInfo) (*tls.Certificate, error) {
-			svid, err := stc.source.GetX509SVID()
-			if err != nil {
-				return nil, err
-			}
-
-			certBytes, keyBytes, err := svid.Marshal()
-			if err != nil {
-				return nil, err
-			}
-
-			cert, err := tls.X509KeyPair(certBytes, keyBytes)
-			if err != nil {
-				return nil, err
-			}
-
-			return &cert, nil
-		},
-		ClientAuth: tls.RequireAnyClientCert,
-		VerifyConnection: func(cs tls.ConnectionState) error {
-			certs := cs.PeerCertificates
-			spid, _, err := x509svid.Verify(certs, stc.source)
-			if err != nil {
-				return err
-			}
-			stc.logger.Debug("verified connection", "spiffeid", spid)
-			return err
-		},
-	}
-}
-
 func main() {
-	// shutdownCh := make(chan struct{})
 	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})
 	logger := slog.New(logHandler)
 	slog.SetDefault(logger)
 
+	shutdownCh := make(chan struct{})
+	shutdownOnce := sync.OnceFunc(func() {
+		close(shutdownCh)
+	})
+
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		<-sigChan
+		shutdownOnce()
+	}()
 
 	startupCtx, startupCancel := context.WithTimeout(ctx, 10*time.Second)
-	defer startupCancel()
 
 	x509source, err := workloadapi.NewX509Source(startupCtx)
 	if err != nil {
@@ -79,9 +45,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	up, err := upstream.New(
-		upstream.WithTCP("127.0.0.1", "5005"),
-	)
+	var upstreamOptions []upstream.Option
+	upstreamOptions = append(upstreamOptions, upstream.WithTCP("127.0.0.1", "5005"))
+	up, err := upstream.New(upstreamOptions...)
 	if err != nil {
 		logger.Error("could not create upstream", "error", err)
 		os.Exit(2)
@@ -95,9 +61,13 @@ func main() {
 		handlers.WithAuthorizer(authz),
 	)
 
-	cfger := &SVIDTLSConfig{
-		logger: logger,
-		source: x509source,
+	cfger, err := tlsconfig.New(
+		tlsconfig.WithLogger(logger),
+		tlsconfig.WithSource(x509source),
+	)
+	if err != nil {
+		logger.Error("could not create tls config", "error", err)
+		os.Exit(3)
 	}
 
 	bindAddr := envDefault("BIND_ADDR", ":8443")
@@ -107,6 +77,14 @@ func main() {
 		Handler:                      logging.Wrap(proxy, logging.WithLogger(logger)),
 		TLSConfig:                    cfger.GetConfig(),
 	}
+
+	startupCancel()
+
+	go func() {
+		<-shutdownCh
+		srv.Shutdown(ctx)
+		cancel()
+	}()
 
 	if err := srv.ListenAndServeTLS("", ""); err != nil {
 		if err != http.ErrServerClosed {
