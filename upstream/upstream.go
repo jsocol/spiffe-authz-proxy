@@ -69,32 +69,16 @@ func (u *Upstream) Addr() net.Addr {
 	return u.addr
 }
 
-type Option func(*Upstream) error
+type Option func(*Upstream)
 
-func WithTCP(host, port string) Option {
-	return func(u *Upstream) error {
-		addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, port))
-		if err != nil {
-			return err
-		}
-		u.addr = addr
-		return nil
-	}
-}
-
-func WithUnix(path string) Option {
-	return func(u *Upstream) error {
-		u.addr = &net.UnixAddr{
-			Net:  "unix",
-			Name: path,
-		}
-		return nil
+func WithAddr(a net.Addr) Option {
+	return func(u *Upstream) {
+		u.addr = a
 	}
 }
 
 func WithRoundTripperWrappers(wrappers ...RoundTripperWrapper) Option {
-	return func(u *Upstream) error {
+	return func(u *Upstream) {
 		u.wrappers = append(u.wrappers, wrappers...)
-		return nil
 	}
 }

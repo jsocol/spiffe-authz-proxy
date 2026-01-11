@@ -14,6 +14,7 @@ import (
 	"jsocol.io/middleware/logging"
 
 	"jsocol.io/spiffe-authz-proxy/authorizer"
+	"jsocol.io/spiffe-authz-proxy/config"
 	"jsocol.io/spiffe-authz-proxy/handlers"
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
@@ -38,6 +39,7 @@ func main() {
 	}()
 
 	startupCtx, startupCancel := context.WithTimeout(ctx, 10*time.Second)
+	cfg := config.FromEnv(startupCtx)
 
 	x509source, err := workloadapi.NewX509Source(startupCtx)
 	if err != nil {
@@ -45,12 +47,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	var upstreamOptions []upstream.Option
-	upstreamOptions = append(upstreamOptions, upstream.WithTCP("127.0.0.1", "5005"))
+	upstreamAddr, err := cfg.UpstreamAddr()
+	if err != nil {
+		logger.Error("no upstream address", "error", err)
+		os.Exit(2)
+	}
+
+	upstreamOptions := []upstream.Option{
+		upstream.WithAddr(upstreamAddr),
+	}
+
 	up, err := upstream.New(upstreamOptions...)
 	if err != nil {
 		logger.Error("could not create upstream", "error", err)
-		os.Exit(2)
+		os.Exit(3)
 	}
 
 	authz := authorizer.NewMemoryAuthorizer()
@@ -61,8 +71,12 @@ func main() {
 		handlers.WithAuthorizer(authz),
 	)
 
-	// TODO: tlsconfig.AuthorizeMemberOf(td)
-	tdAuthorizer := tlsconfig.AuthorizeAny()
+	td, err := cfg.TD()
+	if err != nil {
+		logger.Error("could not parse trust domain", "error", err)
+		os.Exit(4)
+	}
+	tdAuthorizer := tlsconfig.AuthorizeMemberOf(td)
 	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tdAuthorizer)
 
 	bindAddr := envDefault("BIND_ADDR", ":8443")
