@@ -26,12 +26,40 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		assert.Equal(t, expected.String(), actualTCP.String())
 	})
 
-	t.Run("tcp/hostname", func(t *testing.T) {
+	t.Run("tcp4/hostname", func(t *testing.T) {
 		tcp, _ := url.Parse("tcp4://localhost:5002")
 		cfg := &config.Config{
 			Upstream: tcp,
 		}
 		expected := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:5002"))
+
+		actual, err := cfg.UpstreamAddr()
+		assert.NoError(t, err)
+
+		assert.Equal(t, expected, actual)
+	})
+
+	t.Run("tcp/ipv6", func(t *testing.T) {
+		tcp, _ := url.Parse("tcp://[::1]:5001")
+		cfg := &config.Config{
+			Upstream: tcp,
+		}
+		expected := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("[::1]:5001"))
+
+		actual, err := cfg.UpstreamAddr()
+		assert.NoError(t, err)
+
+		actualTCP, ok := actual.(*net.TCPAddr)
+		assert.True(t, ok, "UpstreamAddr() returns a *net.TCPAddr")
+		assert.Equal(t, expected.String(), actualTCP.String())
+	})
+
+	t.Run("tcp6/hostname", func(t *testing.T) {
+		tcp, _ := url.Parse("tcp6://localhost:5002")
+		cfg := &config.Config{
+			Upstream: tcp,
+		}
+		expected := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("[::1]:5002"))
 
 		actual, err := cfg.UpstreamAddr()
 		assert.NoError(t, err)
