@@ -24,10 +24,7 @@ type Upstream struct {
 func New(opts ...Option) (_ *Upstream, err error) {
 	u := &Upstream{}
 	for _, opt := range opts {
-		err := opt(u)
-		if err != nil {
-			return nil, err
-		}
+		opt(u)
 	}
 
 	if u.addr == nil {

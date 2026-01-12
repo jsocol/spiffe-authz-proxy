@@ -21,7 +21,9 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		actual, err := cfg.UpstreamAddr()
 		assert.NoError(t, err)
 
-		assert.Equal(t, expected, actual)
+		actualTCP, ok := actual.(*net.TCPAddr)
+		assert.True(t, ok, "UpstreamAddr() returns a *net.TCPAddr")
+		assert.Equal(t, expected.String(), actualTCP.String())
 	})
 
 	t.Run("tcp/hostname", func(t *testing.T) {

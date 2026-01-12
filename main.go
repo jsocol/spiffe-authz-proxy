@@ -79,9 +79,8 @@ func main() {
 	tdAuthorizer := tlsconfig.AuthorizeMemberOf(td)
 	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tdAuthorizer)
 
-	bindAddr := envDefault("BIND_ADDR", ":8443")
 	srv := &http.Server{
-		Addr:                         bindAddr,
+		Addr:                         cfg.BindAddr,
 		DisableGeneralOptionsHandler: true,
 		Handler:                      logging.Wrap(proxy, logging.WithLogger(logger)),
 		TLSConfig:                    tlsConfig,
@@ -101,11 +100,4 @@ func main() {
 			os.Exit(10)
 		}
 	}
-}
-
-func envDefault(key, def string) string {
-	if v, ok := os.LookupEnv(key); ok {
-		return v
-	}
-	return def
 }
