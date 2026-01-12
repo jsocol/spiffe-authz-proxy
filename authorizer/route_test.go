@@ -13,10 +13,10 @@ func TestRoute_Match(t *testing.T) {
 	t.Run("routes", func(t *testing.T) {
 		t.Parallel()
 
-		t.Run("*/* is any route", func(t *testing.T) {
+		t.Run("** is any route", func(t *testing.T) {
 			tok := &authorizer.Route{
-				Method: "*",
-				Path:   "*",
+				Methods: []string{"*"},
+				Pattern: "**",
 			}
 
 			assert.True(t, tok.Match(http.MethodGet, "/buckets/create"))
@@ -27,8 +27,8 @@ func TestRoute_Match(t *testing.T) {
 
 		t.Run("path can be limited", func(t *testing.T) {
 			tok := &authorizer.Route{
-				Method: "*",
-				Path:   "/buckets/create",
+				Methods: []string{"*"},
+				Pattern: "/buckets/create",
 			}
 
 			assert.True(t, tok.Match(http.MethodGet, "/buckets/create"))
@@ -38,8 +38,8 @@ func TestRoute_Match(t *testing.T) {
 
 		t.Run("path allows wildcards in the middle", func(t *testing.T) {
 			tok := &authorizer.Route{
-				Method: "*",
-				Path:   "/bucket/*/123",
+				Methods: []string{"*"},
+				Pattern: "/bucket/*/123",
 			}
 
 			assert.True(t, tok.Match(http.MethodGet, "/bucket/read/123"))
@@ -49,8 +49,8 @@ func TestRoute_Match(t *testing.T) {
 
 		t.Run("path allows wildcards at the end", func(t *testing.T) {
 			tok := &authorizer.Route{
-				Method: "*",
-				Path:   "/bucket/*",
+				Methods: []string{"*"},
+				Pattern: "/bucket/**",
 			}
 
 			assert.True(t, tok.Match(http.MethodGet, "/bucket/read/123"))
@@ -60,8 +60,8 @@ func TestRoute_Match(t *testing.T) {
 
 		t.Run("path allows wildcards further down", func(t *testing.T) {
 			tok := &authorizer.Route{
-				Method: "*",
-				Path:   "/bucket/read/*",
+				Methods: []string{"*"},
+				Pattern: "/bucket/read/*",
 			}
 
 			assert.True(t, tok.Match(http.MethodGet, "/bucket/read/123"))
@@ -70,8 +70,8 @@ func TestRoute_Match(t *testing.T) {
 
 		t.Run("long paths are too specific", func(t *testing.T) {
 			tok := &authorizer.Route{
-				Method: "*",
-				Path:   "/bucket/foo/bar",
+				Methods: []string{"*"},
+				Pattern: "/bucket/foo/bar",
 			}
 
 			assert.True(t, tok.Match(http.MethodPost, "/bucket/foo/bar"))
