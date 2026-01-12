@@ -12,9 +12,9 @@ type Config struct {
 	LogLevel    string   `env:"LOG_LEVEL, default=info"`
 	LogFormat   string   `env:"LOG_FORMAT, default=json"`
 	BindAddr    string   `env:"BIND_ADDR, default=0:8443"`
-	WorkloadAPI string   `env:"WORKLOAD_API, default=/tmp/spire-agent/public/api.sock"`
+	WorkloadAPI string   `env:"WORKLOAD_API, default=unix:/tmp/spire-agent/public/api.sock"`
 	TrustDomain *url.URL `env:"TRUST_DOMAIN, required"`
-	Upstream    *url.URL `env:"UPSTREAM, default=tcp://127.0.0.1:8000"`
+	Upstream    *url.URL `env:"UPSTREAM_ADDR, default=tcp://127.0.0.1:8000"`
 }
 
 func (c *Config) UpstreamAddr() (net.Addr, error) {

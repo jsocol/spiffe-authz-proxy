@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,16 +21,43 @@ import (
 )
 
 func main() {
-	logHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})
+	ctx, cancel := context.WithCancel(context.Background())
+
+	startupCtx, startupCancel := context.WithTimeout(ctx, 10*time.Second)
+	cfg, err := config.FromEnv(startupCtx)
+	if err != nil {
+		fmt.Printf("could not parse configuration: %v\n", err)
+		os.Exit(-1)
+	}
+
+	var logLevel slog.Level
+	err = logLevel.UnmarshalText([]byte(cfg.LogLevel))
+	if err != nil {
+		fmt.Printf("%s, defaulting to %s\n", err, logLevel.Level())
+	}
+
+	logOptions := &slog.HandlerOptions{
+		Level: logLevel,
+	}
+	var logHandler slog.Handler
+	switch cfg.LogFormat {
+	case "json":
+		logHandler = slog.NewJSONHandler(os.Stdout, logOptions)
+	case "text":
+		logHandler = slog.NewTextHandler(os.Stdout, logOptions)
+	default:
+		fmt.Printf("unknown log format: %s. supported values are [json, text]\n", cfg.LogFormat)
+		os.Exit(-1)
+	}
 	logger := slog.New(logHandler)
 	slog.SetDefault(logger)
+
+	logger.DebugContext(startupCtx, "configured", "config", cfg)
 
 	shutdownCh := make(chan struct{})
 	shutdownOnce := sync.OnceFunc(func() {
 		close(shutdownCh)
 	})
-
-	ctx, cancel := context.WithCancel(context.Background())
 
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
@@ -38,10 +66,9 @@ func main() {
 		shutdownOnce()
 	}()
 
-	startupCtx, startupCancel := context.WithTimeout(ctx, 10*time.Second)
-	cfg := config.FromEnv(startupCtx)
-
-	x509source, err := workloadapi.NewX509Source(startupCtx)
+	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
+		workloadapi.WithAddr(cfg.WorkloadAPI),
+	))
 	if err != nil {
 		logger.Error("could not get x509 source", "error", err)
 		os.Exit(1)
@@ -90,10 +117,14 @@ func main() {
 
 	go func() {
 		<-shutdownCh
-		srv.Shutdown(ctx)
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			logger.ErrorContext(ctx, "error shutting down http server", "error", err)
+		}
 		cancel()
 	}()
 
+	logger.InfoContext(ctx, "starting http server", "addr", srv.Addr)
 	if err := srv.ListenAndServeTLS("", ""); err != nil {
 		if err != http.ErrServerClosed {
 			logger.Error("error starting server", "error", err)
