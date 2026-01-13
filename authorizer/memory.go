@@ -63,3 +63,7 @@ func (a *MemoryAuthorizer) Authorize(_ context.Context, spid spiffeid.ID, method
 	}
 	return fmt.Errorf("spiffeid %s is not authorized for method %s on path %s", spid, method, path)
 }
+
+func (a *MemoryAuthorizer) Length() int {
+	return len(a.routes)
+}

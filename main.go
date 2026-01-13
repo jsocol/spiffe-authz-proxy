@@ -70,13 +70,15 @@ func main() {
 		workloadapi.WithAddr(cfg.WorkloadAPI),
 	))
 	if err != nil {
-		logger.Error("could not get x509 source", "error", err)
+		logger.ErrorContext(startupCtx, "could not get x509 source", "error", err, "workloadAddr", cfg.WorkloadAPI)
 		os.Exit(1)
 	}
 
+	logger.InfoContext(startupCtx, "x509 source connected", "workloadAddr", cfg.WorkloadAPI)
+
 	upstreamAddr, err := cfg.UpstreamAddr()
 	if err != nil {
-		logger.Error("no upstream address", "error", err)
+		logger.ErrorContext(startupCtx, "no upstream address", "error", err)
 		os.Exit(2)
 	}
 
@@ -86,15 +88,19 @@ func main() {
 
 	up, err := upstream.New(upstreamOptions...)
 	if err != nil {
-		logger.Error("could not create upstream", "error", err)
+		logger.ErrorContext(startupCtx, "could not create upstream", "error", err, "upstreamAddr", cfg.Upstream.String())
 		os.Exit(3)
 	}
 
+	logger.InfoContext(startupCtx, "created upstream", "upstreamAddr", cfg.Upstream.String())
+
 	authz, err := authorizer.FromFile(cfg.AuthzConfig)
 	if err != nil {
-		logger.Error("could not read authz config", "error", err)
+		logger.ErrorContext(startupCtx, "could not read authz config", "error", err, "filePath", cfg.AuthzConfig)
 		os.Exit(4)
 	}
+
+	logger.InfoContext(startupCtx, "loaded authorization config", "filePath", cfg.AuthzConfig, "ruleCount", authz.Length())
 
 	proxy := handlers.NewProxy(
 		handlers.WithUpstream(up),
