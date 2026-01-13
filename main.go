@@ -90,7 +90,11 @@ func main() {
 		os.Exit(3)
 	}
 
-	authz := authorizer.NewMemoryAuthorizer()
+	authz, err := authorizer.FromFile(cfg.AuthzConfig)
+	if err != nil {
+		logger.Error("could not read authz config", "error", err)
+		os.Exit(4)
+	}
 
 	proxy := handlers.NewProxy(
 		handlers.WithUpstream(up),
@@ -101,7 +105,7 @@ func main() {
 	td, err := cfg.TD()
 	if err != nil {
 		logger.Error("could not parse trust domain", "error", err)
-		os.Exit(4)
+		os.Exit(5)
 	}
 	tdAuthorizer := tlsconfig.AuthorizeMemberOf(td)
 	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tdAuthorizer)

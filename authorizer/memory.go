@@ -3,51 +3,51 @@ package authorizer
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 
-	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
-type Entry struct {
-	SPIFFEID string  `hcl:"name,label"`
-	Paths    []Route `hcl:"path,block"`
+const (
+	WildcardMethod   = "*"
+	WildcardSegments = "**"
+	WildcardSegment  = "*"
+)
+
+type Route struct {
+	Pattern string
+	Methods []string
 }
 
-type Config struct {
-	Entries []Entry `hcl:"spiffeid,block"`
+func (r *Route) Match(method, path string) bool {
+	if !slices.Contains(r.Methods, method) && !slices.Contains(r.Methods, "*") {
+		return false
+	}
+
+	rPath := strings.TrimRight(r.Pattern, "/")
+	parts := strings.Split(rPath, "/")
+	lastPart := len(parts) - 1
+
+	if parts[0] == WildcardSegments {
+		return true
+	}
+
+	for i, scope := range strings.Split(path, "/") {
+		if i > lastPart {
+			return parts[lastPart] == WildcardSegments
+		}
+		if parts[i] != WildcardSegment && parts[i] != WildcardSegments && parts[i] != scope {
+			return false
+		}
+	}
+
+	return true
 }
 
 type MemoryAuthorizer struct {
 	// TODO: This is terribly inefficient and probably needs improvement
 	routes map[spiffeid.ID][]Route
-}
-
-func FromFile(path string) (*MemoryAuthorizer, error) {
-	cfg := &Config{}
-	err := hclsimple.DecodeFile(path, nil, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	a := &MemoryAuthorizer{
-		routes: make(map[spiffeid.ID][]Route, len(cfg.Entries)),
-	}
-	for _, entry := range cfg.Entries {
-		id, err := spiffeid.FromString(entry.SPIFFEID)
-		if err != nil {
-			return nil, err
-		}
-		a.routes[id] = make([]Route, 0, len(entry.Paths))
-
-		for _, path := range entry.Paths {
-			a.routes[id] = append(a.routes[id], Route{
-				Pattern: path.Pattern,
-				Methods: path.Methods,
-			})
-		}
-	}
-
-	return a, nil
 }
 
 func (a *MemoryAuthorizer) Authorize(_ context.Context, spid spiffeid.ID, method, path string) error {

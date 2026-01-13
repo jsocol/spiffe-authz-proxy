@@ -16,8 +16,9 @@ spiffeid "spiffe://example.org/workload/workload1" {
   }
 }
 
-trustdomain "spiffe://example.org/" {
-  path "/foo/*" {
-    methods = ["GET"]
-  }
-}
+# TODO: Trust entire trustdomains?
+# trustdomain "spiffe://example.org/" {
+#   path "/foo/*" {
+#     methods = ["GET"]
+#   }
+# }

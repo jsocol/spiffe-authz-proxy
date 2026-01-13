@@ -14,6 +14,7 @@ type Config struct {
 	BindAddr    string   `env:"BIND_ADDR, default=0:8443"`
 	WorkloadAPI string   `env:"WORKLOAD_API, default=unix:/tmp/spire-agent/public/api.sock"`
 	TrustDomain *url.URL `env:"TRUST_DOMAIN, required"`
+	AuthzConfig string   `env:"AUTHZ_CONFIG, required"`
 	Upstream    *url.URL `env:"UPSTREAM_ADDR, default=tcp://127.0.0.1:8000"`
 }
 
