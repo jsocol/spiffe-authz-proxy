@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
-	"path"
 	"sync"
 	"time"
 
@@ -69,17 +67,10 @@ func main() {
 	}()
 
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
-		workloadapi.WithAddr(cfg.WorkloadAPI),
+	// workloadapi.WithAddr(cfg.WorkloadAPI),
 	))
 	if err != nil {
 		logger.ErrorContext(startupCtx, "could not get x509 source", "error", err, "workloadAddr", cfg.WorkloadAPI)
-		u, _ := url.Parse(cfg.WorkloadAPI)
-		dirName := path.Dir(u.Path)
-		entries, _ := os.ReadDir(dirName)
-		for _, entry := range entries {
-			info, _ := entry.Info()
-			logger.DebugContext(startupCtx, "file in path", "dirName", dirName, "baseName", entry.Name(), "mode", info.Mode())
-		}
 		os.Exit(1)
 	}
 
