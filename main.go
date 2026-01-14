@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"sync"
 	"time"
 
@@ -23,7 +25,7 @@ import (
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	startupCtx, startupCancel := context.WithTimeout(ctx, 10*time.Second)
+	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
 	cfg, err := config.FromEnv(startupCtx)
 	if err != nil {
 		fmt.Printf("could not parse configuration: %v\n", err)
@@ -71,6 +73,13 @@ func main() {
 	))
 	if err != nil {
 		logger.ErrorContext(startupCtx, "could not get x509 source", "error", err, "workloadAddr", cfg.WorkloadAPI)
+		u, _ := url.Parse(cfg.WorkloadAPI)
+		dirName := path.Dir(u.Path)
+		entries, _ := os.ReadDir(dirName)
+		for _, entry := range entries {
+			info, _ := entry.Info()
+			logger.DebugContext(startupCtx, "file in path", "dirName", dirName, "baseName", entry.Name(), "mode", info.Mode())
+		}
 		os.Exit(1)
 	}
 
