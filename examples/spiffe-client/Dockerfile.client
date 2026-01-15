@@ -1,0 +1,17 @@
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /build/src
+
+COPY go.mod go.sum ./
+
+RUN --mount=type=cache,target=/go/pkg/mod go mod download
+
+COPY main.go .
+
+RUN CGO_ENABLED=0 go build -trimpath -ldflags=-s -o client-app main.go
+
+FROM scratch
+
+COPY --from=builder /build/src/client-app /usr/bin/client-app
+
+ENTRYPOINT [ "/usr/bin/client-app" ]

@@ -1,0 +1,25 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: workload2
+  namespace: client
+spec:
+  containers:
+    - name: client-app
+      image: client-app
+      imagePullPolicy: Never
+      volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /spiffe-workload-api
+          readOnly: true
+      env:
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: unix:///spiffe-workload-api/spire-agent.sock
+        - name: SERVER_ADDR
+          value: 10.244.0.15:8443
+  volumes:
+    - name: spiffe-workload-api
+      csi:
+        driver: "csi.spiffe.io"
+        readOnly: true
