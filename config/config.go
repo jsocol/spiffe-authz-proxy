@@ -11,7 +11,7 @@ import (
 type Config struct {
 	LogLevel    string   `env:"LOG_LEVEL, default=info"`
 	LogFormat   string   `env:"LOG_FORMAT, default=json"`
-	BindAddr    string   `env:"BIND_ADDR, default=0:8443"`
+	BindAddr    string   `env:"BIND_ADDR, default=:8443"`
 	WorkloadAPI string   `env:"WORKLOAD_API, default=unix:/tmp/spire-agent/public/api.sock"`
 	TrustDomain *url.URL `env:"TRUST_DOMAIN, required"`
 	AuthzConfig string   `env:"AUTHZ_CONFIG, required"`

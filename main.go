@@ -17,6 +17,7 @@ import (
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/config"
 	"jsocol.io/spiffe-authz-proxy/handlers"
+	"jsocol.io/spiffe-authz-proxy/logutils"
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
 
@@ -67,7 +68,8 @@ func main() {
 	}()
 
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
-	// workloadapi.WithAddr(cfg.WorkloadAPI),
+		workloadapi.WithLogger(logutils.NewSPIFFEAdapter(ctx, logger)),
+		workloadapi.WithAddr(cfg.WorkloadAPI),
 	))
 	if err != nil {
 		logger.ErrorContext(startupCtx, "could not get x509 source", "error", err, "workloadAddr", cfg.WorkloadAPI)
