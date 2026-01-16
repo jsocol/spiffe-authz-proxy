@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 )
 
@@ -16,14 +17,14 @@ func TestFromFile_HCL(t *testing.T) {
 	spidB := spiffeid.RequireFromString("spiffe://example.org/b/other/app")
 
 	authz, err := authorizer.FromFile(fileName)
-	assert.NoError(t, err)
-	assert.NotNil(t, authz)
+	require.NoError(t, err)
+	require.NotNil(t, authz)
 
 	err = authz.Authorize(context.Background(), spidA, http.MethodGet, "/foo/bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = authz.Authorize(context.Background(), spidB, http.MethodDelete, "/foo/bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }
 
 func TestFromFile_Conf(t *testing.T) {
@@ -32,12 +33,12 @@ func TestFromFile_Conf(t *testing.T) {
 	spidB := spiffeid.RequireFromString("spiffe://example.org/b/other/app")
 
 	authz, err := authorizer.FromFile(fileName)
-	assert.NoError(t, err)
-	assert.NotNil(t, authz)
+	require.NoError(t, err)
+	require.NotNil(t, authz)
 
 	err = authz.Authorize(context.Background(), spidA, http.MethodGet, "/foo/bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = authz.Authorize(context.Background(), spidB, http.MethodDelete, "/foo/bar")
-	assert.NoError(t, err)
+	require.NoError(t, err)
 }

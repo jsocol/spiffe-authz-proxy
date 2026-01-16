@@ -39,6 +39,7 @@ func New(opts ...Option) (_ *Upstream, err error) {
 			if err != nil {
 				return nil, fmt.Errorf("could not dial upstream %s: %v", u.addr.String(), err)
 			}
+
 			return conn, nil
 		},
 	}
@@ -51,6 +52,7 @@ func New(opts ...Option) (_ *Upstream, err error) {
 		Transport: t,
 	}
 	u.client = c
+
 	return u, nil
 }
 

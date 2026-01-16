@@ -10,9 +10,10 @@ import (
 )
 
 func TestRoute_Match(t *testing.T) {
+	t.Parallel()
+
 	t.Run("routes", func(t *testing.T) {
 		t.Parallel()
-
 		t.Run("** is any route", func(t *testing.T) {
 			tok := &authorizer.Route{
 				Methods: []string{"*"},

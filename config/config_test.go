@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"jsocol.io/spiffe-authz-proxy/config"
 )
 
@@ -19,7 +21,7 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		expected := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:5001"))
 
 		actual, err := cfg.UpstreamAddr()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		actualTCP, ok := actual.(*net.TCPAddr)
 		assert.True(t, ok, "UpstreamAddr() returns a *net.TCPAddr")
@@ -34,7 +36,7 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		expected := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("127.0.0.1:5002"))
 
 		actual, err := cfg.UpstreamAddr()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assert.Equal(t, expected.String(), actual.String())
 	})
@@ -47,7 +49,7 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		expected := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("[::1]:5001"))
 
 		actual, err := cfg.UpstreamAddr()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		actualTCP, ok := actual.(*net.TCPAddr)
 		assert.True(t, ok, "UpstreamAddr() returns a *net.TCPAddr")
@@ -62,7 +64,7 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		expected := net.TCPAddrFromAddrPort(netip.MustParseAddrPort("[::1]:5002"))
 
 		actual, err := cfg.UpstreamAddr()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assert.Equal(t, expected.String(), actual.String())
 	})
@@ -78,7 +80,7 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		}
 
 		actual, err := cfg.UpstreamAddr()
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		assert.Equal(t, expected, actual)
 	})

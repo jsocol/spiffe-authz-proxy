@@ -21,14 +21,22 @@ import (
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
 
+const (
+	exitCodeNoConfig = iota
+	exitCodeX509Source
+	exitCodeBadConfig
+	exitCodeServerError
+)
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	startupCtx, startupCancel := context.WithTimeout(ctx, 15*time.Second)
+	startupTimeout := 15 * time.Second //nolint:mnd
+	startupCtx, startupCancel := context.WithTimeout(ctx, startupTimeout)
 	cfg, err := config.FromEnv(startupCtx)
 	if err != nil {
 		fmt.Printf("could not parse configuration: %v\n", err)
-		os.Exit(-1)
+		os.Exit(exitCodeNoConfig)
 	}
 
 	var logLevel slog.Level
@@ -48,7 +56,7 @@ func main() {
 		logHandler = slog.NewTextHandler(os.Stdout, logOptions)
 	default:
 		fmt.Printf("unknown log format: %s. supported values are [json, text]\n", cfg.LogFormat)
-		os.Exit(-1)
+		os.Exit(exitCodeNoConfig)
 	}
 	logger := slog.New(logHandler)
 	slog.SetDefault(logger)
@@ -67,21 +75,12 @@ func main() {
 		shutdownOnce()
 	}()
 
-	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
-		workloadapi.WithLogger(logutils.NewSPIFFEAdapter(ctx, logger.With("logger", "x509source"))),
-		workloadapi.WithAddr(cfg.WorkloadAPI),
-	))
-	if err != nil {
-		logger.ErrorContext(startupCtx, "could not get x509 source", "error", err, "workloadAddr", cfg.WorkloadAPI)
-		os.Exit(1)
-	}
-
 	logger.InfoContext(startupCtx, "x509 source connected", "workloadAddr", cfg.WorkloadAPI)
 
 	upstreamAddr, err := cfg.UpstreamAddr()
 	if err != nil {
 		logger.ErrorContext(startupCtx, "no upstream address", "error", err)
-		os.Exit(2)
+		os.Exit(exitCodeBadConfig)
 	}
 
 	upstreamOptions := []upstream.Option{
@@ -90,19 +89,34 @@ func main() {
 
 	up, err := upstream.New(upstreamOptions...)
 	if err != nil {
-		logger.ErrorContext(startupCtx, "could not create upstream", "error", err, "upstreamAddr", cfg.Upstream.String())
-		os.Exit(3)
+		logger.ErrorContext(
+			startupCtx,
+			"could not create upstream",
+			"error", err,
+			"upstreamAddr", cfg.Upstream.String(),
+		)
+		os.Exit(exitCodeBadConfig)
 	}
 
 	logger.InfoContext(startupCtx, "created upstream", "upstreamAddr", cfg.Upstream.String())
 
 	authz, err := authorizer.FromFile(cfg.AuthzConfig)
 	if err != nil {
-		logger.ErrorContext(startupCtx, "could not read authz config", "error", err, "filePath", cfg.AuthzConfig)
-		os.Exit(4)
+		logger.ErrorContext(
+			startupCtx,
+			"could not read authz config",
+			"error", err,
+			"filePath", cfg.AuthzConfig,
+		)
+		os.Exit(exitCodeBadConfig)
 	}
 
-	logger.InfoContext(startupCtx, "loaded authorization config", "filePath", cfg.AuthzConfig, "ruleCount", authz.Length())
+	logger.InfoContext(
+		startupCtx,
+		"loaded authorization config",
+		"filePath", cfg.AuthzConfig,
+		"ruleCount", authz.Length(),
+	)
 
 	proxy := handlers.NewProxy(
 		handlers.WithUpstream(up),
@@ -113,8 +127,23 @@ func main() {
 	td, err := cfg.TD()
 	if err != nil {
 		logger.Error("could not parse trust domain", "error", err)
-		os.Exit(5)
+		os.Exit(exitCodeBadConfig)
 	}
+
+	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
+		workloadapi.WithLogger(logutils.NewSPIFFEAdapter(ctx, logger.With("logger", "x509source"))),
+		workloadapi.WithAddr(cfg.WorkloadAPI),
+	))
+	if err != nil {
+		logger.ErrorContext(
+			startupCtx,
+			"could not get x509 source",
+			"error", err,
+			"workloadAddr", cfg.WorkloadAPI,
+		)
+		os.Exit(exitCodeX509Source)
+	}
+
 	tdAuthorizer := tlsconfig.AuthorizeMemberOf(td)
 	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tdAuthorizer)
 
@@ -122,6 +151,7 @@ func main() {
 		Addr:                         cfg.BindAddr,
 		DisableGeneralOptionsHandler: true,
 		Handler:                      logging.Wrap(proxy, logging.WithLogger(logger)),
+		ReadHeaderTimeout:            time.Second,
 		TLSConfig:                    tlsConfig,
 	}
 
@@ -140,7 +170,7 @@ func main() {
 	if err := srv.ListenAndServeTLS("", ""); err != nil {
 		if err != http.ErrServerClosed {
 			logger.Error("error starting server", "error", err)
-			os.Exit(10)
+			os.Exit(exitCodeServerError)
 		}
 	}
 }

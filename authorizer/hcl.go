@@ -28,7 +28,8 @@ type hclConfig struct {
 }
 
 func FromFile(fileName string) (*MemoryAuthorizer, error) {
-	src, err := os.ReadFile(fileName)
+	// ignore gosec G304, this is on purpose
+	src, err := os.ReadFile(fileName) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

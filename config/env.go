@@ -12,5 +12,6 @@ func FromEnv(ctx context.Context) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return cfg, nil
 }

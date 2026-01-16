@@ -19,5 +19,6 @@ func FromContext(ctx context.Context) spiffeid.ID {
 	if spID, ok := val.(spiffeid.ID); ok {
 		return spID
 	}
+
 	return spiffeid.ID{}
 }
