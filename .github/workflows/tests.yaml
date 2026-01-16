@@ -1,0 +1,38 @@
+---
+"on":
+  pull_request:
+    types: [synchronize, opened, reopened]
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Run tests
+        run: |
+          go test -v -timeout=30s ./...
+
+  run-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Run build
+        run: |
+          go build -trimpath -ldflags=-s -o spiffe-authz-proxy main.go
