@@ -36,7 +36,7 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		actual, err := cfg.UpstreamAddr()
 		assert.NoError(t, err)
 
-		assert.Equal(t, expected, actual)
+		assert.Equal(t, expected.String(), actual.String())
 	})
 
 	t.Run("tcp/ipv6", func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestConfig_UpstreamAddr(t *testing.T) {
 		actual, err := cfg.UpstreamAddr()
 		assert.NoError(t, err)
 
-		assert.Equal(t, expected, actual)
+		assert.Equal(t, expected.String(), actual.String())
 	})
 
 	t.Run("unix", func(t *testing.T) {
