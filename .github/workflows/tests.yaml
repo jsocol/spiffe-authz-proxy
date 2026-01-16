@@ -17,6 +17,10 @@ jobs:
         with:
           go-version: 'stable'
 
+      - name: Download dependencies
+        run: |
+          go mod download
+
       - name: Run tests
         run: |
           go test -v -timeout=30s ./...
@@ -32,6 +36,10 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: 'stable'
+
+      - name: Download dependencies
+        run: |
+          go mod download
 
       - name: Run build
         run: |
