@@ -23,7 +23,7 @@ func main() {
 
 	addr := os.Getenv("SERVER_ADDR")
 
-	resp, err := client.Get(fmt.Sprintf("https://%s/hi", addr))
+	resp, err := client.Get(fmt.Sprintf("https://%s/hi/Name", addr))
 	if err != nil {
 		panic(err)
 	}

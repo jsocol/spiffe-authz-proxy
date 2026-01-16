@@ -6,9 +6,9 @@ COPY go.mod go.sum ./
 
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 
-COPY main.go .
+COPY client.go .
 
-RUN CGO_ENABLED=0 go build -trimpath -ldflags=-s -o client-app main.go
+RUN CGO_ENABLED=0 go build -trimpath -ldflags=-s -o client-app client.go
 
 FROM scratch
 
