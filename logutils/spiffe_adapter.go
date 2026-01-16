@@ -21,21 +21,11 @@ func NewSPIFFEAdapter(ctx context.Context, logger *slog.Logger) *SPIFFEAdapter {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+
 	return &SPIFFEAdapter{
 		ctx:    ctx,
 		logger: logger,
 	}
-}
-
-func (s *SPIFFEAdapter) newRecord(level slog.Level, format string, rest ...any) slog.Record {
-	var pc [1]uintptr
-	// 3 - Callers, newRecord, Debugf
-	runtime.Callers(3, pc[:])
-	return slog.NewRecord(time.Now(), level, fmt.Sprintf(format, rest...), pc[0])
-}
-
-func (s *SPIFFEAdapter) handle(rec slog.Record) {
-	_ = s.logger.Handler().Handle(s.ctx, rec)
 }
 
 func (s *SPIFFEAdapter) Debugf(format string, rest ...any) {
@@ -72,4 +62,16 @@ func (s *SPIFFEAdapter) Errorf(format string, rest ...any) {
 
 	rec := s.newRecord(slog.LevelError, format, rest...)
 	s.handle(rec)
+}
+
+func (s *SPIFFEAdapter) newRecord(level slog.Level, format string, rest ...any) slog.Record {
+	var pc [1]uintptr
+	// 3 - Callers, newRecord, Debugf
+	runtime.Callers(3, pc[:]) //nolint:mnd
+
+	return slog.NewRecord(time.Now(), level, fmt.Sprintf(format, rest...), pc[0])
+}
+
+func (s *SPIFFEAdapter) handle(rec slog.Record) {
+	_ = s.logger.Handler().Handle(s.ctx, rec)
 }

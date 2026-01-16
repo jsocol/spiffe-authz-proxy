@@ -46,6 +46,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(clientCert.URIs) != 1 {
 		w.WriteHeader(http.StatusBadRequest)
 		p.logger.DebugContext(ctx, "invalid svid, no unique uri SAN")
+
 		return
 	}
 
@@ -56,6 +57,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		logger.DebugContext(ctx, "could not parse uri into spiffeid")
+
 		return
 	}
 
@@ -64,6 +66,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		logger.DebugContext(ctx, "unauthorized", "error", err)
+
 		return
 	}
 
@@ -77,6 +80,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.ErrorContext(ctx, "error creating upstream request", "error", err)
+
 		return
 	}
 
@@ -86,6 +90,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.ErrorContext(ctx, "error connecting to upstream", "error", err)
+
 		return
 	}
 

@@ -1,0 +1,67 @@
+---
+"on":
+  pull_request:
+    types: [synchronize, opened, reopened]
+  workflow_dispatch:
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Download dependencies
+        run: |
+          go mod download
+
+      - name: Run tests
+        run: |
+          go test -v -timeout=30s ./...
+
+  run-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Download dependencies
+        run: |
+          go mod download
+
+      - name: Run build
+        run: |
+          go build -trimpath -ldflags=-s -o spiffe-authz-proxy main.go
+
+  run-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version: 'stable'
+
+      - name: Download dependencies
+        run: |
+          go mod download
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.6

@@ -1,7 +1,15 @@
 package authorizer
 
 import (
-	"github.com/hashicorp/hcl/v2/hclsimple"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
+	"github.com/hashicorp/hcl/v2/json"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
 
@@ -19,9 +27,15 @@ type hclConfig struct {
 	Entries []hclEntry `hcl:"spiffeid,block"`
 }
 
-func FromFile(path string) (*MemoryAuthorizer, error) {
+func FromFile(fileName string) (*MemoryAuthorizer, error) {
+	// ignore gosec G304, this is on purpose
+	src, err := os.ReadFile(fileName) //nolint:gosec
+	if err != nil {
+		return nil, err
+	}
+
 	cfg := &hclConfig{}
-	err := hclsimple.DecodeFile(path, nil, cfg)
+	err = decodeHCL(fileName, src, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -42,4 +56,31 @@ func FromFile(path string) (*MemoryAuthorizer, error) {
 	}
 
 	return a, nil
+}
+
+// this is borrowed from hcl/v2/hclsimple.DecodeFile, and allows us to accept
+// more extensions, like the super-common ".conf"
+func decodeHCL(fileName string, src []byte, target any) error {
+	var file *hcl.File
+	var diags hcl.Diagnostics
+
+	ext := strings.ToLower(filepath.Ext(fileName))
+	switch ext {
+	case ".hcl", ".conf":
+		file, diags = hclsyntax.ParseConfig(src, fileName, hcl.InitialPos)
+	case ".json":
+		file, diags = json.Parse(src, fileName)
+	default:
+		return fmt.Errorf("could not read config, unsupported format %s", ext)
+	}
+	if diags.HasErrors() {
+		return diags
+	}
+
+	diags = gohcl.DecodeBody(file.Body, nil, target)
+	if diags.HasErrors() {
+		return diags
+	}
+
+	return nil
 }
