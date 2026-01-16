@@ -68,7 +68,7 @@ func main() {
 	}()
 
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
-		workloadapi.WithLogger(logutils.NewSPIFFEAdapter(ctx, logger)),
+		workloadapi.WithLogger(logutils.NewSPIFFEAdapter(ctx, logger.With("logger", "x509source"))),
 		workloadapi.WithAddr(cfg.WorkloadAPI),
 	))
 	if err != nil {
@@ -106,7 +106,7 @@ func main() {
 
 	proxy := handlers.NewProxy(
 		handlers.WithUpstream(up),
-		handlers.WithLogger(logger),
+		handlers.WithLogger(logger.With("logger", "proxy")),
 		handlers.WithAuthorizer(authz),
 	)
 

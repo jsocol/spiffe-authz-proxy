@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"maps"
 	"net/http"
+	"net/url"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 
@@ -48,7 +50,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	san := clientCert.URIs[0]
-	logger := p.logger.With("uri", san)
+	logger := p.logger.With("spiffeid", san.String())
 
 	spID, err := spiffeid.FromURI(san)
 	if err != nil {
@@ -58,8 +60,6 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx = spiffeidutil.WithSPIFFEID(ctx, spID)
-	logger = logger.With("spiffeid", spID)
-
 	err = p.authz.Authorize(ctx, spID, r.Method, r.URL.Path)
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
@@ -67,7 +67,21 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	req := r.WithContext(ctx)
+	upstreamURL := &url.URL{}
+	*upstreamURL = *r.URL
+	upstreamURL.Scheme = "http"
+	upstreamURL.Host = r.Host
+
+	logger = logger.With("upstreamURL", upstreamURL)
+	req, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL.String(), r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		logger.ErrorContext(ctx, "error creating upstream request", "error", err)
+		return
+	}
+
+	maps.Copy(req.Header, r.Header)
+	req.Header.Add("Host", r.Host)
 	resp, err := p.upstream.Do(req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -76,12 +90,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respHeader := w.Header()
-	for header, values := range resp.Header {
-		for _, v := range values {
-			respHeader.Add(header, v)
-		}
-	}
-
+	maps.Copy(respHeader, resp.Header)
 	w.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(w, resp.Body)
 	if err != nil {

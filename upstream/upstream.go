@@ -3,6 +3,7 @@ package upstream
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 
@@ -34,7 +35,11 @@ func New(opts ...Option) (_ *Upstream, err error) {
 	dialer := &net.Dialer{}
 	var t http.RoundTripper = &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return dialer.DialContext(ctx, u.addr.Network(), u.addr.String())
+			conn, err := dialer.DialContext(ctx, u.addr.Network(), u.addr.String())
+			if err != nil {
+				return nil, fmt.Errorf("could not dial upstream %s: %v", u.addr.String(), err)
+			}
+			return conn, nil
 		},
 	}
 
