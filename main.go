@@ -19,6 +19,7 @@ import (
 	"jsocol.io/spiffe-authz-proxy/handlers"
 	"jsocol.io/spiffe-authz-proxy/logutils"
 	"jsocol.io/spiffe-authz-proxy/upstream"
+	"jsocol.io/spiffe-authz-proxy/x509util"
 )
 
 const (
@@ -124,12 +125,6 @@ func main() {
 		handlers.WithAuthorizer(authz),
 	)
 
-	td, err := cfg.TD()
-	if err != nil {
-		logger.Error("could not parse trust domain", "error", err)
-		os.Exit(exitCodeBadConfig)
-	}
-
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
 		workloadapi.WithLogger(logutils.NewSPIFFEAdapter(ctx, logger.With("logger", "x509source"))),
 		workloadapi.WithAddr(cfg.WorkloadAPI),
@@ -144,8 +139,32 @@ func main() {
 		os.Exit(exitCodeX509Source)
 	}
 
-	tdAuthorizer := tlsconfig.AuthorizeMemberOf(td)
-	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tdAuthorizer)
+	svid, err := x509source.GetX509SVID()
+	if err != nil {
+		logger.ErrorContext(
+			startupCtx,
+			"could not get x509 svid",
+			"error", err,
+		)
+		os.Exit(exitCodeX509Source)
+	}
+
+	spID, err := x509util.SPIFFEIDFromCert(startupCtx, svid.Certificates[0])
+	if err != nil {
+		logger.ErrorContext(
+			startupCtx,
+			"could not get spiffe ID from svid",
+			"error", err,
+		)
+	}
+
+	logger.InfoContext(
+		startupCtx,
+		"got server svid",
+		"spiffeid", spID.String(),
+	)
+
+	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tlsconfig.AuthorizeAny())
 
 	srv := &http.Server{
 		Addr:                         cfg.BindAddr,
