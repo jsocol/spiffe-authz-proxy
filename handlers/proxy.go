@@ -9,9 +9,9 @@ import (
 	"net/url"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
 	"jsocol.io/spiffe-authz-proxy/spiffeidutil"
-	"jsocol.io/spiffe-authz-proxy/x509util"
 )
 
 type proxyAuthorizer interface {
@@ -44,7 +44,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	clientCert := r.TLS.PeerCertificates[0]
-	spID, err := x509util.SPIFFEIDFromCert(ctx, clientCert)
+	spID, err := x509svid.IDFromCert(clientCert)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		p.logger.DebugContext(ctx, "could not parse uri into spiffeid")

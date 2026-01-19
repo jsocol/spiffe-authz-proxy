@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
+	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"jsocol.io/middleware/logging"
 
@@ -19,7 +20,6 @@ import (
 	"jsocol.io/spiffe-authz-proxy/handlers"
 	"jsocol.io/spiffe-authz-proxy/logutils"
 	"jsocol.io/spiffe-authz-proxy/upstream"
-	"jsocol.io/spiffe-authz-proxy/x509util"
 )
 
 const (
@@ -149,7 +149,7 @@ func main() {
 		os.Exit(exitCodeX509Source)
 	}
 
-	spID, err := x509util.SPIFFEIDFromCert(startupCtx, svid.Certificates[0])
+	spID, err := x509svid.IDFromCert(svid.Certificates[0])
 	if err != nil {
 		logger.ErrorContext(
 			startupCtx,
