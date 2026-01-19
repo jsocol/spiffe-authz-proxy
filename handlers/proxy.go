@@ -11,6 +11,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 
 	"jsocol.io/spiffe-authz-proxy/spiffeidutil"
+	"jsocol.io/spiffe-authz-proxy/x509util"
 )
 
 type proxyAuthorizer interface {
@@ -43,23 +44,15 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	clientCert := r.TLS.PeerCertificates[0]
-	if len(clientCert.URIs) != 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		p.logger.DebugContext(ctx, "invalid svid, no unique uri SAN")
-
-		return
-	}
-
-	san := clientCert.URIs[0]
-	logger := p.logger.With("spiffeid", san.String())
-
-	spID, err := spiffeid.FromURI(san)
+	spID, err := x509util.SPIFFEIDFromCert(ctx, clientCert)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		logger.DebugContext(ctx, "could not parse uri into spiffeid")
+		p.logger.DebugContext(ctx, "could not parse uri into spiffeid")
 
 		return
 	}
+
+	logger := p.logger.With("spiffeid", spID.String())
 
 	ctx = spiffeidutil.WithSPIFFEID(ctx, spID)
 	err = p.authz.Authorize(ctx, spID, r.Method, r.URL.Path)
@@ -86,6 +79,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	maps.Copy(req.Header, r.Header)
 	req.Header.Add("Host", r.Host)
+	req.Header.Add("Spiffe-Id", spID.String())
 	resp, err := p.upstream.Do(req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
