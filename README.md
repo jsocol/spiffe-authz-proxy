@@ -46,7 +46,7 @@ It does not need to handle TLS termination.
 Configuration is via environment variables. Most of them have reasonable
 defaults. Only `AUTHZ_CONFIG` is required.
 
-!env var!description!default!
+|env var|description|default|
 |---|---|---|
 | `AUTHZ_CONFIG` | Path to an authorization config file ([see below](#authz-config)). **Required**. | |
 | `LOG_LEVEL` | Set the log level. Accepts Golang log/slog levels. | `INFO` |
