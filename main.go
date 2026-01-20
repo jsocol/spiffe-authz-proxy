@@ -118,7 +118,7 @@ func main() {
 		"ruleCount", authz.Length(),
 	)
 
-	proxy := handlers.NewProxy(
+	proxyHandler := handlers.NewProxy(
 		handlers.WithUpstream(up),
 		handlers.WithLogger(logger.With("logger", "proxy")),
 		handlers.WithAuthorizer(authz),
@@ -173,6 +173,7 @@ func main() {
 	}
 
 	go func() {
+		logger.InfoContext(ctx, "starting health endpoints", "addr", healthServer.Addr)
 		if err := healthServer.ListenAndServe(); err != nil {
 			if err != http.ErrServerClosed {
 				logger.ErrorContext(startupCtx, "could not start healthcheck server", "error", err)
@@ -202,7 +203,7 @@ func main() {
 	proxyServer := &http.Server{
 		Addr:                         cfg.BindAddr,
 		DisableGeneralOptionsHandler: true,
-		Handler:                      logging.Wrap(proxy, logging.WithLogger(logger)),
+		Handler:                      logging.Wrap(proxyHandler, logging.WithLogger(logger)),
 		ReadHeaderTimeout:            time.Second,
 		TLSConfig:                    tlsConfig,
 	}
@@ -224,7 +225,7 @@ func main() {
 		}
 	}()
 
-	logger.InfoContext(ctx, "starting http server", "addr", proxyServer.Addr)
+	logger.InfoContext(ctx, "starting proxy server", "addr", proxyServer.Addr)
 	if err := proxyServer.ListenAndServeTLS("", ""); err != nil {
 		if err != http.ErrServerClosed {
 			logger.Error("error starting server", "error", err)
