@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
@@ -101,13 +102,36 @@ func main() {
 
 	logger.InfoContext(startupCtx, "created upstream", "upstreamAddr", cfg.Upstream.String())
 
-	authz, err := authorizer.FromFile(cfg.AuthzConfig)
+	authzURL, err := cfg.AuthzConfigURL()
+	if err != nil {
+		logger.ErrorContext(
+			startupCtx,
+			"could not interpret authz config source",
+			"authzConfig", cfg.AuthzConfig,
+		)
+		os.Exit(exitCodeBadConfig)
+	}
+
+	logger.DebugContext(startupCtx, "loading authz data", "sourceKind", authzURL.Scheme, "sourcePath", authzURL.Path)
+	var authz *authorizer.MemoryAuthorizer
+	switch authzURL.Scheme {
+	case "file":
+		authz, err = authorizer.FromFile(authzURL.Path)
+	case "configmap":
+		authz, err = authorizer.FromConfigMap(startupCtx, authzURL.Host, strings.TrimPrefix(authzURL.Path, "/"))
+	default:
+		logger.ErrorContext(
+			startupCtx,
+			"unsupport authz config source",
+			"authzConfig", cfg.AuthzConfig,
+		)
+	}
 	if err != nil {
 		logger.ErrorContext(
 			startupCtx,
 			"could not read authz config",
 			"error", err,
-			"filePath", cfg.AuthzConfig,
+			"authzConfig", cfg.AuthzConfig,
 		)
 		os.Exit(exitCodeBadConfig)
 	}
@@ -175,7 +199,7 @@ func main() {
 		logger.InfoContext(ctx, "starting meta endpoints server", "addr", metaSrv.Addr)
 		if err := metaSrv.ListenAndServe(); err != nil {
 			if err != http.ErrServerClosed {
-				logger.ErrorContext(startupCtx, "could not start meta server", "error", err)
+				logger.ErrorContext(startupCtx, "error starting meta server", "error", err)
 				os.Exit(exitCodeServerError)
 			}
 		}
@@ -225,7 +249,7 @@ func main() {
 	logger.InfoContext(ctx, "starting proxy server", "addr", proxyServer.Addr)
 	if err := proxyServer.ListenAndServeTLS("", ""); err != nil {
 		if err != http.ErrServerClosed {
-			logger.Error("error starting server", "error", err)
+			logger.Error("error starting proxy server", "error", err)
 			os.Exit(exitCodeServerError)
 		}
 	}

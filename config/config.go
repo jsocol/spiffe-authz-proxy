@@ -33,3 +33,16 @@ func (c *Config) UpstreamAddr() (net.Addr, error) {
 		return nil, fmt.Errorf("unsupported upstream scheme: %s", c.Upstream.Scheme)
 	}
 }
+
+func (c *Config) AuthzConfigURL() (*url.URL, error) {
+	u, err := url.Parse(c.AuthzConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	if u.Scheme == "" {
+		u.Scheme = "file"
+	}
+
+	return u, nil
+}
