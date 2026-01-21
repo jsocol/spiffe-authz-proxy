@@ -13,7 +13,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"jsocol.io/middleware/logging"
 
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/config"
@@ -21,6 +20,7 @@ import (
 	"jsocol.io/spiffe-authz-proxy/handlers/proxyhandler"
 	"jsocol.io/spiffe-authz-proxy/logutils"
 	"jsocol.io/spiffe-authz-proxy/servers/metaserver"
+	"jsocol.io/spiffe-authz-proxy/servers/proxyserver"
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
 
@@ -199,13 +199,11 @@ func main() {
 
 	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tlsconfig.AuthorizeAny())
 
-	proxyServer := &http.Server{
-		Addr:                         cfg.BindAddr,
-		DisableGeneralOptionsHandler: true,
-		Handler:                      logging.Wrap(proxyHandler, logging.WithLogger(logger)),
-		ReadHeaderTimeout:            time.Second,
-		TLSConfig:                    tlsConfig,
-	}
+	proxyServer := proxyserver.New(
+		proxyserver.WithAddr(cfg.BindAddr),
+		proxyserver.WithProxyHandler(proxyHandler),
+		proxyserver.WithTLSConfig(tlsConfig),
+	)
 
 	startupCancel()
 
