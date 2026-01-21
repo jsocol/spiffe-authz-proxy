@@ -17,15 +17,18 @@ type httpDoer interface {
 }
 
 type Upstream struct {
-	addr     net.Addr
-	client   httpDoer
-	wrappers []RoundTripperWrapper
+	addr   net.Addr
+	client httpDoer
 }
 
 func New(opts ...Option) (_ *Upstream, err error) {
-	u := &Upstream{}
+	c := &config{}
 	for _, opt := range opts {
-		opt(u)
+		opt.Apply(c)
+	}
+
+	u := &Upstream{
+		addr: c.addr,
 	}
 
 	if u.addr == nil {
@@ -44,14 +47,13 @@ func New(opts ...Option) (_ *Upstream, err error) {
 		},
 	}
 
-	for _, wrap := range u.wrappers {
+	for _, wrap := range c.wrappers {
 		t = wrap(t)
 	}
 
-	c := &http.Client{
+	u.client = &http.Client{
 		Transport: t,
 	}
-	u.client = c
 
 	return u, nil
 }
@@ -73,16 +75,29 @@ func (u *Upstream) Addr() net.Addr {
 	return u.addr
 }
 
-type Option func(*Upstream)
+type Option interface {
+	Apply(*config)
+}
+
+type config struct {
+	addr     net.Addr
+	wrappers []RoundTripperWrapper
+}
+
+type optionFunc func(*config)
+
+func (o optionFunc) Apply(c *config) {
+	o(c)
+}
 
 func WithAddr(a net.Addr) Option {
-	return func(u *Upstream) {
-		u.addr = a
-	}
+	return optionFunc(func(c *config) {
+		c.addr = a
+	})
 }
 
 func WithRoundTripperWrappers(wrappers ...RoundTripperWrapper) Option {
-	return func(u *Upstream) {
-		u.wrappers = append(u.wrappers, wrappers...)
-	}
+	return optionFunc(func(c *config) {
+		c.wrappers = append(c.wrappers, wrappers...)
+	})
 }
