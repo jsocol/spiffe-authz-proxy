@@ -1,4 +1,4 @@
-package handlers_test
+package proxyhandler_test
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"jsocol.io/spiffe-authz-proxy/handlers"
+	"jsocol.io/spiffe-authz-proxy/handlers/proxyhandler"
 )
 
 //go:embed testdata/rootcert.pem
@@ -77,7 +77,10 @@ func TestProxy_Authorized(t *testing.T) {
 		}, nil
 	}
 
-	proxy := handlers.NewProxy(handlers.WithAuthorizer(authz), handlers.WithUpstream(upstream))
+	proxy := proxyhandler.New(
+		proxyhandler.WithAuthorizer(authz),
+		proxyhandler.WithUpstream(upstream),
+	)
 
 	srv, client := newTestClientServer(t, proxy)
 	srv.StartTLS()
@@ -116,7 +119,10 @@ func TestProxy_Unauthorized(t *testing.T) {
 		return nil, nil //nolint:nilnil,nlreturn
 	}
 
-	proxy := handlers.NewProxy(handlers.WithAuthorizer(authz), handlers.WithUpstream(upstream))
+	proxy := proxyhandler.New(
+		proxyhandler.WithAuthorizer(authz),
+		proxyhandler.WithUpstream(upstream),
+	)
 
 	srv, client := newTestClientServer(t, proxy)
 	srv.StartTLS()

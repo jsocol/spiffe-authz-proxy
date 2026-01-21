@@ -13,12 +13,14 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
-	"jsocol.io/middleware/logging"
 
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/config"
-	"jsocol.io/spiffe-authz-proxy/handlers"
+	"jsocol.io/spiffe-authz-proxy/handlers/healthhandler"
+	"jsocol.io/spiffe-authz-proxy/handlers/proxyhandler"
 	"jsocol.io/spiffe-authz-proxy/logutils"
+	"jsocol.io/spiffe-authz-proxy/servers/metaserver"
+	"jsocol.io/spiffe-authz-proxy/servers/proxyserver"
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
 
@@ -30,7 +32,7 @@ const (
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := context.Background()
 
 	startupTimeout := 15 * time.Second //nolint:mnd
 	startupCtx, startupCancel := context.WithTimeout(ctx, startupTimeout)
@@ -76,8 +78,6 @@ func main() {
 		shutdownOnce()
 	}()
 
-	logger.InfoContext(startupCtx, "x509 source connected", "workloadAddr", cfg.WorkloadAPI)
-
 	upstreamAddr, err := cfg.UpstreamAddr()
 	if err != nil {
 		logger.ErrorContext(startupCtx, "no upstream address", "error", err)
@@ -119,10 +119,10 @@ func main() {
 		"ruleCount", authz.Length(),
 	)
 
-	proxy := handlers.NewProxy(
-		handlers.WithUpstream(up),
-		handlers.WithLogger(logger.With("logger", "proxy")),
-		handlers.WithAuthorizer(authz),
+	proxyHandler := proxyhandler.New(
+		proxyhandler.WithUpstream(up),
+		proxyhandler.WithLogger(logger.With("logger", "proxy")),
+		proxyhandler.WithAuthorizer(authz),
 	)
 
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
@@ -164,29 +164,66 @@ func main() {
 		"spiffeid", spID.String(),
 	)
 
+	healthHandler := healthhandler.New(healthhandler.WithLogger(logger.With("logger", "health")))
+
+	metaSrv := metaserver.New(
+		metaserver.WithAddr(cfg.MetaAddr),
+		metaserver.WithHealthHandler(healthHandler),
+	)
+
+	go func() {
+		logger.InfoContext(ctx, "starting meta endpoints server", "addr", metaSrv.Addr)
+		if err := metaSrv.ListenAndServe(); err != nil {
+			if err != http.ErrServerClosed {
+				logger.ErrorContext(startupCtx, "could not start meta server", "error", err)
+				os.Exit(exitCodeServerError)
+			}
+		}
+	}()
+
+	go func() {
+		gracePeriod := 10 * time.Second //nolint:mnd
+		<-shutdownCh
+
+		logger.InfoContext(ctx, "shutting down healthcheck server", "gracePeriod", gracePeriod)
+
+		ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
+		defer cancel()
+
+		if err := metaSrv.Shutdown(ctx); err != nil {
+			logger.ErrorContext(ctx, "error shutting down healthcheck server", "error", err)
+		}
+	}()
+
+	logger.InfoContext(startupCtx, "x509 source connected", "workloadAddr", cfg.WorkloadAPI)
+
 	tlsConfig := tlsconfig.MTLSServerConfig(x509source, x509source, tlsconfig.AuthorizeAny())
 
-	srv := &http.Server{
-		Addr:                         cfg.BindAddr,
-		DisableGeneralOptionsHandler: true,
-		Handler:                      logging.Wrap(proxy, logging.WithLogger(logger)),
-		ReadHeaderTimeout:            time.Second,
-		TLSConfig:                    tlsConfig,
-	}
+	proxyServer := proxyserver.New(
+		proxyserver.WithAddr(cfg.BindAddr),
+		proxyserver.WithProxyHandler(proxyHandler),
+		proxyserver.WithTLSConfig(tlsConfig),
+	)
 
 	startupCancel()
 
 	go func() {
+		gracePeriod := 10 * time.Second //nolint:mnd
 		<-shutdownCh
-		err := srv.Shutdown(ctx)
+
+		logger.InfoContext(ctx, "shutting down proxy server", "gracePeriod", gracePeriod)
+
+		ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
+		defer cancel()
+
+		err := proxyServer.Shutdown(ctx)
 		if err != nil {
-			logger.ErrorContext(ctx, "error shutting down http server", "error", err)
+			logger.ErrorContext(ctx, "error shutting down proxy server", "error", err)
 		}
-		cancel()
 	}()
 
-	logger.InfoContext(ctx, "starting http server", "addr", srv.Addr)
-	if err := srv.ListenAndServeTLS("", ""); err != nil {
+	logger.InfoContext(ctx, "starting proxy server", "addr", proxyServer.Addr)
+	if err := proxyServer.ListenAndServeTLS("", ""); err != nil {
 		if err != http.ErrServerClosed {
 			logger.Error("error starting server", "error", err)
 			os.Exit(exitCodeServerError)
