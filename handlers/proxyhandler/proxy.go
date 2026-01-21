@@ -28,13 +28,19 @@ type Proxy struct {
 	upstream upstreamer
 }
 
-func NewProxy(opts ...ProxyOption) *Proxy {
-	p := &Proxy{
+func New(opts ...Option) *Proxy {
+	c := &config{
 		logger: slog.Default(),
 	}
 
 	for _, opt := range opts {
-		opt(p)
+		opt.Apply(c)
+	}
+
+	p := &Proxy{
+		logger:   c.logger,
+		authz:    c.authz,
+		upstream: c.upstream,
 	}
 
 	return p
@@ -97,22 +103,35 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type ProxyOption func(*Proxy)
-
-func WithLogger(l *slog.Logger) ProxyOption {
-	return func(p *Proxy) {
-		p.logger = l
-	}
+type config struct {
+	logger   *slog.Logger
+	upstream upstreamer
+	authz    proxyAuthorizer
 }
 
-func WithAuthorizer(a proxyAuthorizer) ProxyOption {
-	return func(p *Proxy) {
-		p.authz = a
-	}
+type Option interface {
+	Apply(*config)
+}
+type optionFunc func(*config)
+
+func (o optionFunc) Apply(c *config) {
+	o(c)
 }
 
-func WithUpstream(u upstreamer) ProxyOption {
-	return func(p *Proxy) {
-		p.upstream = u
-	}
+func WithLogger(l *slog.Logger) Option {
+	return optionFunc(func(c *config) {
+		c.logger = l
+	})
+}
+
+func WithAuthorizer(a proxyAuthorizer) Option {
+	return optionFunc(func(c *config) {
+		c.authz = a
+	})
+}
+
+func WithUpstream(u upstreamer) Option {
+	return optionFunc(func(c *config) {
+		c.upstream = u
+	})
 }

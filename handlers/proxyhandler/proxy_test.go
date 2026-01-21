@@ -77,7 +77,7 @@ func TestProxy_Authorized(t *testing.T) {
 		}, nil
 	}
 
-	proxy := proxyhandler.NewProxy(
+	proxy := proxyhandler.New(
 		proxyhandler.WithAuthorizer(authz),
 		proxyhandler.WithUpstream(upstream),
 	)
@@ -119,7 +119,7 @@ func TestProxy_Unauthorized(t *testing.T) {
 		return nil, nil //nolint:nilnil,nlreturn
 	}
 
-	proxy := proxyhandler.NewProxy(
+	proxy := proxyhandler.New(
 		proxyhandler.WithAuthorizer(authz),
 		proxyhandler.WithUpstream(upstream),
 	)

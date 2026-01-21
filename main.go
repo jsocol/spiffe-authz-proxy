@@ -119,7 +119,7 @@ func main() {
 		"ruleCount", authz.Length(),
 	)
 
-	proxyHandler := proxyhandler.NewProxy(
+	proxyHandler := proxyhandler.New(
 		proxyhandler.WithUpstream(up),
 		proxyhandler.WithLogger(logger.With("logger", "proxy")),
 		proxyhandler.WithAuthorizer(authz),
