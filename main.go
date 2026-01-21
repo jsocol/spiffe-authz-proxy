@@ -18,8 +18,9 @@ import (
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/config"
 	"jsocol.io/spiffe-authz-proxy/handlers"
-	"jsocol.io/spiffe-authz-proxy/handlers/health"
+	"jsocol.io/spiffe-authz-proxy/handlers/healthhandler"
 	"jsocol.io/spiffe-authz-proxy/logutils"
+	"jsocol.io/spiffe-authz-proxy/servers/metaserver"
 	"jsocol.io/spiffe-authz-proxy/upstream"
 )
 
@@ -163,20 +164,18 @@ func main() {
 		"spiffeid", spID.String(),
 	)
 
-	healthHandler := health.NewHealth()
+	healthHandler := healthhandler.New(healthhandler.WithLogger(logger.With("logger", "health")))
 
-	healthServer := &http.Server{
-		Addr:                         cfg.HealthAddr,
-		DisableGeneralOptionsHandler: true,
-		Handler:                      healthHandler,
-		ReadTimeout:                  time.Second,
-	}
+	metaSrv := metaserver.New(
+		metaserver.WithAddr(cfg.MetaAddr),
+		metaserver.WithHealthHandler(healthHandler),
+	)
 
 	go func() {
-		logger.InfoContext(ctx, "starting health endpoints", "addr", healthServer.Addr)
-		if err := healthServer.ListenAndServe(); err != nil {
+		logger.InfoContext(ctx, "starting meta endpoints server", "addr", metaSrv.Addr)
+		if err := metaSrv.ListenAndServe(); err != nil {
 			if err != http.ErrServerClosed {
-				logger.ErrorContext(startupCtx, "could not start healthcheck server", "error", err)
+				logger.ErrorContext(startupCtx, "could not start meta server", "error", err)
 				os.Exit(exitCodeServerError)
 			}
 		}
@@ -191,7 +190,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), gracePeriod)
 		defer cancel()
 
-		if err := healthServer.Shutdown(ctx); err != nil {
+		if err := metaSrv.Shutdown(ctx); err != nil {
 			logger.ErrorContext(ctx, "error shutting down healthcheck server", "error", err)
 		}
 	}()
