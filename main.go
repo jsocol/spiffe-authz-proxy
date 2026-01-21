@@ -17,8 +17,8 @@ import (
 
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/config"
-	"jsocol.io/spiffe-authz-proxy/handlers"
 	"jsocol.io/spiffe-authz-proxy/handlers/healthhandler"
+	"jsocol.io/spiffe-authz-proxy/handlers/proxyhandler"
 	"jsocol.io/spiffe-authz-proxy/logutils"
 	"jsocol.io/spiffe-authz-proxy/servers/metaserver"
 	"jsocol.io/spiffe-authz-proxy/upstream"
@@ -119,10 +119,10 @@ func main() {
 		"ruleCount", authz.Length(),
 	)
 
-	proxyHandler := handlers.NewProxy(
-		handlers.WithUpstream(up),
-		handlers.WithLogger(logger.With("logger", "proxy")),
-		handlers.WithAuthorizer(authz),
+	proxyHandler := proxyhandler.NewProxy(
+		proxyhandler.WithUpstream(up),
+		proxyhandler.WithLogger(logger.With("logger", "proxy")),
+		proxyhandler.WithAuthorizer(authz),
 	)
 
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
