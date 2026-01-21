@@ -57,6 +57,7 @@ func (h *hclConfig) toAuthorizer() (*MemoryAuthorizer, error) {
 	a := &MemoryAuthorizer{
 		routes: make(map[spiffeid.ID][]Route, len(h.Entries)),
 	}
+
 	for _, entry := range h.Entries {
 		id, err := spiffeid.FromString(entry.SPIFFEID)
 		if err != nil {
@@ -68,5 +69,6 @@ func (h *hclConfig) toAuthorizer() (*MemoryAuthorizer, error) {
 			a.routes[id] = append(a.routes[id], Route(path))
 		}
 	}
+
 	return a, nil
 }
