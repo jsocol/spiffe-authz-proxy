@@ -48,7 +48,7 @@ defaults. Only `AUTHZ_CONFIG` is required.
 
 |env var|description|default|
 |---|---|---|
-| `AUTHZ_CONFIG` | Path to an authorization config file ([see below](#authz-config)). **Required**. | |
+| `AUTHZ_CONFIG` | The authoziration config source ([see below](#authz-config)). **Required**. | |
 | `LOG_LEVEL` | Set the log level. Accepts Golang log/slog levels. | `INFO` |
 | `LOG_FORMAT` | Set the log format. Accepts either `json` or `text`. | `json` |
 | `BIND_ADDR` | The IP and port to bind and listen on. | `:8443` |
@@ -57,10 +57,68 @@ defaults. Only `AUTHZ_CONFIG` is required.
 
 ## AuthZ Config
 
-The authorization rules are defined in an HCL-formatted file. `spiffeid` blocks
-are the top level config, granting access to SVIDs with the given SPIFFE ID.
-Under each `spiffeid` block, `path` blocks allow specific paths or patterns.
-Within a `path` block, the `methods` array allows specific HTTP methods.
+### Sources
+
+The `AUTHZ_CONFIG` variable typically looks like a URL, with structure that
+depends on the scheme. The supported schemes are `file:` and `configmap:`.
+
+#### `file:` sources
+
+With a `file:` URL, the path component is the filesystem path to a file
+containing the AuthZ configuration. For example:
+
+```sh
+AUTHZ_CONFIG=file:///path/to/file.conf
+```
+
+#### `configmap:` sources
+
+Within Kubernetes, you can specify a ConfigMap that the workload can read
+containing the AuthZ configuration. The authority is the name of the ConfigMap,
+and the path is the filename within the Data section of the ConfigMap. For
+example:
+
+```sh
+AUTHZ_CONFIG=configmap://some-configmap/authz-file.conf
+```
+
+Would look for a ConfigMap like
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: some-configmap
+data:
+  authz-file.conf: |
+    spiffeid "spiffe://example.org/foo/bar" {}
+```
+
+The ConfigMap must be in the same Namespace as the workload.
+
+If it can, `spiffe-authz-proxy` will attempt to watch the specified ConfigMap
+for changes and reload the rules when necessary. In order for this to work, the
+ServiceAccount for the workload needs ot have both `get` and `watch`
+permissions on the ConfigMap.
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: config-map-watcher
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "watch"]
+  resourceNames: ["some-configmap"]
+```
+
+### Syntax
+
+The authorization rules are defined with HCL. `spiffeid` blocks are the top
+level config, granting access to SVIDs with the given SPIFFE ID.  Under each
+`spiffeid` block, `path` blocks allow specific paths or patterns.  Within a
+`path` block, the `methods` array allows specific HTTP methods.
 
 ```hcl
 # rules for requests with SVIDs for the spiffeid spiffe://example.org/workloads/workload-a
