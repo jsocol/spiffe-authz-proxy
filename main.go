@@ -131,7 +131,11 @@ func main() {
 			strings.TrimPrefix(authzURL.Path, "/"),
 			authorizer.WithLogger(logger.With("logger", "authorizer")),
 		)
-		go authz.Watch(ctx)
+		go func() {
+			if err := authz.Watch(ctx); err != nil {
+				logger.InfoContext(ctx, "error watching configmap", "error", err)
+			}
+		}()
 	default:
 		logger.ErrorContext(
 			startupCtx,

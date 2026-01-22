@@ -84,6 +84,9 @@ func configMapToRoutes(cm *corev1.ConfigMap, fileName string) (map[spiffeid.ID][
 	return cfg.toRouteMap()
 }
 
+// TODO: Simplify/restructure this.
+//
+//nolint:gocognit
 func watchConfigMap(
 	ma *MemoryAuthorizer,
 	clientSet *kubernetes.Clientset,
