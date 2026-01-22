@@ -18,7 +18,11 @@ import (
 
 const namespaceFile = "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
 
-func FromConfigMap(ctx context.Context, cmName, fileName string, opts ...Option) (*MemoryAuthorizer, error) {
+func FromConfigMap(
+	ctx context.Context,
+	cmName, fileName string,
+	opts ...Option,
+) (*MemoryAuthorizer, error) {
 	cfg := &config{
 		logger: slog.Default(),
 	}
@@ -80,7 +84,11 @@ func configMapToRoutes(cm *corev1.ConfigMap, fileName string) (map[spiffeid.ID][
 	return cfg.toRouteMap()
 }
 
-func watchConfigMap(ma *MemoryAuthorizer, clientSet *kubernetes.Clientset, namespace, cmName, fileName string) func(context.Context) error {
+func watchConfigMap(
+	ma *MemoryAuthorizer,
+	clientSet *kubernetes.Clientset,
+	namespace, cmName, fileName string,
+) func(context.Context) error {
 	logger := ma.cfg.logger.With("configMap", cmName, "fileName", fileName, "namespace", namespace)
 
 	return func(ctx context.Context) error {
@@ -89,10 +97,15 @@ func watchConfigMap(ma *MemoryAuthorizer, clientSet *kubernetes.Clientset, names
 			Name:      cmName,
 		}
 
-		watcher, err := clientSet.CoreV1().ConfigMaps(namespace).Watch(ctx, metav1.SingleObject(objMeta))
+		watcher, err := clientSet.CoreV1().
+			ConfigMaps(namespace).
+			Watch(ctx, metav1.SingleObject(objMeta))
 		if err != nil {
 			if apierrors.IsUnauthorized(err) {
-				logger.WarnContext(ctx, "could not start configmap watcher; need 'watch' permission")
+				logger.WarnContext(
+					ctx,
+					"could not start configmap watcher; need 'watch' permission",
+				)
 
 				return nil
 			}

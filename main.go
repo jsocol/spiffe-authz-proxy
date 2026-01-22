@@ -112,7 +112,14 @@ func main() {
 		os.Exit(exitCodeBadConfig)
 	}
 
-	logger.DebugContext(startupCtx, "loading authz data", "sourceKind", authzURL.Scheme, "sourcePath", authzURL.Path)
+	logger.DebugContext(
+		startupCtx,
+		"loading authz data",
+		"sourceKind",
+		authzURL.Scheme,
+		"sourcePath",
+		authzURL.Path,
+	)
 	var authz *authorizer.MemoryAuthorizer
 	switch authzURL.Scheme {
 	case "file":
