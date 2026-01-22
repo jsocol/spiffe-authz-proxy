@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 )
@@ -47,7 +48,10 @@ func (r *Route) Match(method, path string) bool {
 
 type MemoryAuthorizer struct {
 	// TODO: This is terribly inefficient and probably needs improvement
-	routes map[spiffeid.ID][]Route
+	routes  map[spiffeid.ID][]Route
+	mu      sync.RWMutex
+	watcher func(context.Context) error
+	cfg     *config
 }
 
 func (a *MemoryAuthorizer) Authorize(
@@ -55,7 +59,10 @@ func (a *MemoryAuthorizer) Authorize(
 	spid spiffeid.ID,
 	method, path string,
 ) error {
+	a.mu.RLock()
 	routes, ok := a.routes[spid]
+	a.mu.RUnlock()
+
 	if !ok {
 		return fmt.Errorf("unknown spiffeid %s", spid)
 	}
@@ -71,4 +78,18 @@ func (a *MemoryAuthorizer) Authorize(
 
 func (a *MemoryAuthorizer) Length() int {
 	return len(a.routes)
+}
+
+func (a *MemoryAuthorizer) Update(config map[spiffeid.ID][]Route) {
+	a.mu.Lock()
+	a.routes = config
+	a.mu.Unlock()
+}
+
+func (a *MemoryAuthorizer) Watch(ctx context.Context) error {
+	if a.watcher == nil {
+		return nil
+	}
+
+	return a.watcher(ctx)
 }

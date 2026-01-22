@@ -2,7 +2,6 @@ package authorizer
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -25,37 +24,6 @@ type hclEntry struct {
 
 type hclConfig struct {
 	Entries []hclEntry `hcl:"spiffeid,block"`
-}
-
-func FromFile(fileName string) (*MemoryAuthorizer, error) {
-	// ignore gosec G304, this is on purpose
-	src, err := os.ReadFile(fileName) //nolint:gosec
-	if err != nil {
-		return nil, err
-	}
-
-	cfg := &hclConfig{}
-	err = decodeHCL(fileName, src, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	a := &MemoryAuthorizer{
-		routes: make(map[spiffeid.ID][]Route, len(cfg.Entries)),
-	}
-	for _, entry := range cfg.Entries {
-		id, err := spiffeid.FromString(entry.SPIFFEID)
-		if err != nil {
-			return nil, err
-		}
-		a.routes[id] = make([]Route, 0, len(entry.Paths))
-
-		for _, path := range entry.Paths {
-			a.routes[id] = append(a.routes[id], Route(path))
-		}
-	}
-
-	return a, nil
 }
 
 // this is borrowed from hcl/v2/hclsimple.DecodeFile, and allows us to accept
@@ -83,4 +51,36 @@ func decodeHCL(fileName string, src []byte, target any) error {
 	}
 
 	return nil
+}
+
+func (h *hclConfig) toRouteMap() (map[spiffeid.ID][]Route, error) {
+	routes := make(map[spiffeid.ID][]Route, len(h.Entries))
+
+	for _, entry := range h.Entries {
+		id, err := spiffeid.FromString(entry.SPIFFEID)
+		if err != nil {
+			return nil, err
+		}
+		routes[id] = make([]Route, 0, len(entry.Paths))
+
+		for _, path := range entry.Paths {
+			routes[id] = append(routes[id], Route(path))
+		}
+	}
+
+	return routes, nil
+}
+
+func (h *hclConfig) toAuthorizer(cfg *config) (*MemoryAuthorizer, error) {
+	routes, err := h.toRouteMap()
+	if err != nil {
+		return nil, err
+	}
+
+	a := &MemoryAuthorizer{
+		cfg:    cfg,
+		routes: routes,
+	}
+
+	return a, nil
 }
