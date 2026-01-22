@@ -48,8 +48,10 @@ func (r *Route) Match(method, path string) bool {
 
 type MemoryAuthorizer struct {
 	// TODO: This is terribly inefficient and probably needs improvement
-	routes map[spiffeid.ID][]Route
-	mu     sync.RWMutex
+	routes  map[spiffeid.ID][]Route
+	mu      sync.RWMutex
+	watcher func(context.Context) error
+	cfg     *config
 }
 
 func (a *MemoryAuthorizer) Authorize(
@@ -82,4 +84,12 @@ func (a *MemoryAuthorizer) Update(config map[spiffeid.ID][]Route) {
 	a.mu.Lock()
 	a.routes = config
 	a.mu.Unlock()
+}
+
+func (a *MemoryAuthorizer) Watch(ctx context.Context) error {
+	if a.watcher == nil {
+		return nil
+	}
+
+	return a.watcher(ctx)
 }

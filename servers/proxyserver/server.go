@@ -34,6 +34,7 @@ func New(opts ...Option) *http.Server {
 		DisableGeneralOptionsHandler: true,
 		ReadTimeout:                  c.ReadTimeout,
 		ReadHeaderTimeout:            c.ReadHeaderTimeout,
+		TLSConfig:                    c.TLSConfig,
 	}
 
 	return h

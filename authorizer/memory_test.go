@@ -7,6 +7,7 @@ import (
 
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/stretchr/testify/require"
+
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 )
 

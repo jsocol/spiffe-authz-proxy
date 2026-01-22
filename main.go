@@ -118,7 +118,13 @@ func main() {
 	case "file":
 		authz, err = authorizer.FromFile(authzURL.Path)
 	case "configmap":
-		authz, err = authorizer.FromConfigMap(startupCtx, authzURL.Host, strings.TrimPrefix(authzURL.Path, "/"))
+		authz, err = authorizer.FromConfigMap(
+			startupCtx,
+			authzURL.Host,
+			strings.TrimPrefix(authzURL.Path, "/"),
+			authorizer.WithLogger(logger.With("logger", "authorizer")),
+		)
+		go authz.Watch(ctx)
 	default:
 		logger.ErrorContext(
 			startupCtx,

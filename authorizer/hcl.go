@@ -53,21 +53,33 @@ func decodeHCL(fileName string, src []byte, target any) error {
 	return nil
 }
 
-func (h *hclConfig) toAuthorizer() (*MemoryAuthorizer, error) {
-	a := &MemoryAuthorizer{
-		routes: make(map[spiffeid.ID][]Route, len(h.Entries)),
-	}
+func (h *hclConfig) toRouteMap() (map[spiffeid.ID][]Route, error) {
+	routes := make(map[spiffeid.ID][]Route, len(h.Entries))
 
 	for _, entry := range h.Entries {
 		id, err := spiffeid.FromString(entry.SPIFFEID)
 		if err != nil {
 			return nil, err
 		}
-		a.routes[id] = make([]Route, 0, len(entry.Paths))
+		routes[id] = make([]Route, 0, len(entry.Paths))
 
 		for _, path := range entry.Paths {
-			a.routes[id] = append(a.routes[id], Route(path))
+			routes[id] = append(routes[id], Route(path))
 		}
+	}
+
+	return routes, nil
+}
+
+func (h *hclConfig) toAuthorizer(cfg *config) (*MemoryAuthorizer, error) {
+	routes, err := h.toRouteMap()
+	if err != nil {
+		return nil, err
+	}
+
+	a := &MemoryAuthorizer{
+		cfg:    cfg,
+		routes: routes,
 	}
 
 	return a, nil
