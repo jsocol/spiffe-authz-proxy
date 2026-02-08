@@ -67,6 +67,8 @@ func main() {
 	logger := slog.New(logHandler)
 	slog.SetDefault(logger)
 
+	promRegistry := prometheus.NewRegistry()
+
 	logger.DebugContext(startupCtx, "configured", "config", cfg)
 
 	shutdownCh := make(chan struct{})
@@ -87,11 +89,10 @@ func main() {
 		os.Exit(exitCodeBadConfig)
 	}
 
-	upstreamOptions := []upstream.Option{
+	up, err := upstream.New(
 		upstream.WithAddr(upstreamAddr),
-	}
-
-	up, err := upstream.New(upstreamOptions...)
+		upstream.WithMetrics(promRegistry),
+	)
 	if err != nil {
 		logger.ErrorContext(
 			startupCtx,
@@ -161,8 +162,6 @@ func main() {
 		"filePath", cfg.AuthzConfig,
 		"ruleCount", authz.Length(),
 	)
-
-	promRegistry := prometheus.NewRegistry()
 
 	proxyHandler := proxyhandler.New(
 		proxyhandler.WithUpstream(up),

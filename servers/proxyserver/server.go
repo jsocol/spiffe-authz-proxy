@@ -48,14 +48,14 @@ func New(opts ...Option) *http.Server {
 		}, []string{"code", "method"})
 
 		reqDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name:    "inbound_http_request_duration",
-			Help:    "A histogram of latencies for requests.",
+			Name:    "inbound_http_request_duration_seconds",
+			Help:    "A histogram of latencies for inbound requests.",
 			Buckets: []float64{0.1, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0},
 		}, []string{"handler", "method"})
 
 		reqInFlight := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "inbound_http_requests_in_flight",
-			Help: "A guage of the number of HTTP requests currently in flight.",
+			Help: "A gauge of the number of inbound HTTP requests currently in flight.",
 		})
 
 		c.Metrics.MustRegister(reqCount, reqDuration, reqInFlight)
