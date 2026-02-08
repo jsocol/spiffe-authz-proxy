@@ -167,6 +167,7 @@ func main() {
 		proxyhandler.WithUpstream(up),
 		proxyhandler.WithLogger(logger.With("logger", "proxy")),
 		proxyhandler.WithAuthorizer(authz),
+		proxyhandler.WithMetrics(promRegistry),
 	)
 
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(

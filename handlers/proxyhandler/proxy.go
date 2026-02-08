@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 
@@ -26,6 +27,7 @@ type Proxy struct {
 	logger   *slog.Logger
 	authz    proxyAuthorizer
 	upstream upstreamer
+	metrics  *proxyMetrics
 }
 
 func New(opts ...Option) *Proxy {
@@ -43,6 +45,23 @@ func New(opts ...Option) *Proxy {
 		upstream: c.upstream,
 	}
 
+	if c.metrics != nil {
+		m := &proxyMetrics{
+			errors: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "proxy_authz_error_count",
+				Help: "A counter of errors that occur during AuthN/AuthZ.",
+			}, []string{"reason"}),
+			results: prometheus.NewCounterVec(prometheus.CounterOpts{
+				Name: "proxy_authz_result_count",
+				Help: "A counter of AuthZ results.",
+			}, []string{"result"}),
+		}
+
+		c.metrics.MustRegister(m.errors, m.results)
+
+		p.metrics = m
+	}
+
 	return p
 }
 
@@ -54,6 +73,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		p.logger.DebugContext(ctx, "could not parse uri into spiffeid")
+		p.metrics.Error("no_spiffeid")
 
 		return
 	}
@@ -65,9 +85,12 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusForbidden)
 		logger.DebugContext(ctx, "unauthorized", "error", err)
+		p.metrics.Result("unauthorized")
 
 		return
 	}
+
+	p.metrics.Result("authorized")
 
 	upstreamURL := &url.URL{}
 	*upstreamURL = *r.URL
@@ -107,6 +130,7 @@ type config struct {
 	logger   *slog.Logger
 	upstream upstreamer
 	authz    proxyAuthorizer
+	metrics  prometheus.Registerer
 }
 
 type Option interface {
@@ -134,4 +158,27 @@ func WithUpstream(u upstreamer) Option {
 	return optionFunc(func(c *config) {
 		c.upstream = u
 	})
+}
+
+func WithMetrics(r prometheus.Registerer) Option {
+	return optionFunc(func(c *config) {
+		c.metrics = r
+	})
+}
+
+type proxyMetrics struct {
+	errors  *prometheus.CounterVec
+	results *prometheus.CounterVec
+}
+
+func (pm *proxyMetrics) Error(reason string) {
+	if pm != nil {
+		pm.errors.With(prometheus.Labels{"reason": reason}).Inc()
+	}
+}
+
+func (pm *proxyMetrics) Result(result string) {
+	if pm != nil {
+		pm.results.With(prometheus.Labels{"result": result}).Inc()
+	}
 }
