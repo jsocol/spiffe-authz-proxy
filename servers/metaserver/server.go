@@ -6,9 +6,10 @@ import (
 )
 
 type config struct {
-	Addr          string
-	HealthHandler http.Handler
-	ReadTimeout   time.Duration
+	Addr           string
+	HealthHandler  http.Handler
+	MetricsHandler http.Handler
+	ReadTimeout    time.Duration
 }
 
 func defaultConfig() *config {
@@ -49,6 +50,12 @@ func (o optionFunc) Apply(c *config) {
 func WithHealthHandler(h http.Handler) Option {
 	return optionFunc(func(c *config) {
 		c.HealthHandler = h
+	})
+}
+
+func WithMetricsHandler(h http.Handler) Option {
+	return optionFunc(func(c *config) {
+		c.MetricsHandler = h
 	})
 }
 
