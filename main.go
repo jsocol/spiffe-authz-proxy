@@ -253,6 +253,7 @@ func main() {
 		proxyserver.WithAddr(cfg.BindAddr),
 		proxyserver.WithProxyHandler(proxyHandler),
 		proxyserver.WithTLSConfig(tlsConfig),
+		proxyserver.WithMetrics(promRegistry),
 	)
 
 	startupCancel()
