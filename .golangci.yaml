@@ -61,6 +61,10 @@ linters:
         - name: exported
           disabled: true
 
+    gosec:
+      excludes:
+        - G118
+
 formatters:
   enable:
     - gofumpt

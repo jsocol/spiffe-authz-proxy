@@ -34,12 +34,12 @@ const (
 	exitCodeServerError
 )
 
+const startupTimeout = 15 * time.Second
+
 func main() {
 	ctx := context.Background()
 
-	startupTimeout := 15 * time.Second //nolint:mnd
-	startupCtx, startupCancel := context.WithTimeout(ctx, startupTimeout)
-	cfg, err := config.FromEnv(startupCtx)
+	cfg, err := config.FromEnv(ctx)
 	if err != nil {
 		fmt.Printf("could not parse configuration: %v\n", err)
 		os.Exit(exitCodeNoConfig)
@@ -69,7 +69,13 @@ func main() {
 
 	promRegistry := prometheus.NewRegistry()
 
-	logger.DebugContext(startupCtx, "configured", "config", cfg)
+	logger.DebugContext(ctx, "configured", "config", cfg)
+
+	runProxy(ctx, logger, cfg, promRegistry)
+}
+
+func runProxy(ctx context.Context, logger *slog.Logger, cfg *config.Config, promRegistry *prometheus.Registry) {
+	startupCtx, startupCancel := context.WithTimeout(ctx, startupTimeout)
 
 	shutdownCh := make(chan struct{})
 	shutdownOnce := sync.OnceFunc(func() {
