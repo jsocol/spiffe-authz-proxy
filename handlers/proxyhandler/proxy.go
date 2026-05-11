@@ -20,7 +20,7 @@ type proxyAuthorizer interface {
 }
 
 type upstreamer interface {
-	Do(*http.Request) (*http.Response, error)
+	Proxy(*http.Request) (*http.Response, error)
 }
 
 type Proxy struct {
@@ -98,7 +98,10 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	upstreamURL.Host = r.Host
 
 	logger = logger.With("upstreamURL", upstreamURL)
-	req, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL.String(), r.Body)
+	// #nosec G704 - This is a proxy, so intentionally passes along the request
+	// details. In practice, the dialer ignores the host to connect to the
+	// configured upstream server.
+	req, err := http.NewRequestWithContext(ctx, r.Method, upstreamURL.String(), r.Body) //#nosec G704
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.ErrorContext(ctx, "error creating upstream request", "error", err)
@@ -109,7 +112,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	maps.Copy(req.Header, r.Header)
 	req.Header.Add("Host", r.Host)
 	req.Header.Add("Spiffe-Id", spID.String())
-	resp, err := p.upstream.Do(req)
+	resp, err := p.upstream.Proxy(req)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		logger.ErrorContext(ctx, "error connecting to upstream", "error", err)

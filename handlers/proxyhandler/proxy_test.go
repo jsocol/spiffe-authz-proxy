@@ -47,7 +47,7 @@ func (m mockAuthorizer) Authorize(
 
 type mockUpstream func(*http.Request) (*http.Response, error)
 
-func (m mockUpstream) Do(r *http.Request) (*http.Response, error) {
+func (m mockUpstream) Proxy(r *http.Request) (*http.Response, error) {
 	return m(r)
 }
 

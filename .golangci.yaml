@@ -73,3 +73,10 @@ formatters:
         - standard
         - default
         - localmodule
+
+    golines:
+      max-len: 120
+      tab-len: 4
+      shorten-comments: false
+      reformat-tags: true
+      chain-split-dots: true

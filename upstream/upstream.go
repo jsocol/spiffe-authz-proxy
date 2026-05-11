@@ -9,6 +9,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"jsocol.io/spiffe-authz-proxy/spiffeidutil"
 )
 
@@ -85,7 +86,7 @@ func New(opts ...Option) (_ *Upstream, err error) {
 	return u, nil
 }
 
-func (u *Upstream) Do(r *http.Request) (*http.Response, error) {
+func (u *Upstream) Proxy(r *http.Request) (*http.Response, error) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	req := r.WithContext(ctx)
