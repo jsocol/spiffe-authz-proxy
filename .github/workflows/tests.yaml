@@ -48,6 +48,10 @@ jobs:
   run-lint:
     runs-on: ubuntu-latest
 
+    permissions:
+      contents: read
+      pull-requests: read
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
