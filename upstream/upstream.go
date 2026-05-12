@@ -7,6 +7,9 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"jsocol.io/spiffe-authz-proxy/spiffeidutil"
 )
 
@@ -51,6 +54,31 @@ func New(opts ...Option) (_ *Upstream, err error) {
 		t = wrap(t)
 	}
 
+	if c.metrics != nil {
+		reqCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "upstream_http_request_count",
+			Help: "A counter of upstream requests from the proxy.",
+		}, []string{"code", "method"})
+
+		reqDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Name: "upstream_http_request_duration_seconds",
+			Help: "A histogram of latencies for upstream requests.",
+		}, []string{"handler", "method"})
+
+		reqInFlight := prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "upstream_http_requests_in_flight",
+			Help: "A gauge of the number of upstream HTTP requests currently in flight.",
+		})
+
+		c.metrics.MustRegister(reqCounter, reqDuration, reqInFlight)
+
+		t = promhttp.InstrumentRoundTripperCounter(reqCounter,
+			promhttp.InstrumentRoundTripperDuration(reqDuration,
+				promhttp.InstrumentRoundTripperInFlight(reqInFlight, t),
+			),
+		)
+	}
+
 	u.client = &http.Client{
 		Transport: t,
 	}
@@ -58,7 +86,7 @@ func New(opts ...Option) (_ *Upstream, err error) {
 	return u, nil
 }
 
-func (u *Upstream) Do(r *http.Request) (*http.Response, error) {
+func (u *Upstream) Proxy(r *http.Request) (*http.Response, error) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	req := r.WithContext(ctx)
@@ -82,6 +110,7 @@ type Option interface {
 type config struct {
 	addr     net.Addr
 	wrappers []RoundTripperWrapper
+	metrics  prometheus.Registerer
 }
 
 type optionFunc func(*config)
@@ -99,5 +128,11 @@ func WithAddr(a net.Addr) Option {
 func WithRoundTripperWrappers(wrappers ...RoundTripperWrapper) Option {
 	return optionFunc(func(c *config) {
 		c.wrappers = append(c.wrappers, wrappers...)
+	})
+}
+
+func WithMetrics(r prometheus.Registerer) Option {
+	return optionFunc(func(c *config) {
+		c.metrics = r
 	})
 }

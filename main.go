@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spiffe/go-spiffe/v2/spiffetls/tlsconfig"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
@@ -18,6 +19,7 @@ import (
 	"jsocol.io/spiffe-authz-proxy/authorizer"
 	"jsocol.io/spiffe-authz-proxy/config"
 	"jsocol.io/spiffe-authz-proxy/handlers/healthhandler"
+	"jsocol.io/spiffe-authz-proxy/handlers/metricshandler"
 	"jsocol.io/spiffe-authz-proxy/handlers/proxyhandler"
 	"jsocol.io/spiffe-authz-proxy/logutils"
 	"jsocol.io/spiffe-authz-proxy/servers/metaserver"
@@ -65,6 +67,8 @@ func main() {
 	logger := slog.New(logHandler)
 	slog.SetDefault(logger)
 
+	promRegistry := prometheus.NewRegistry()
+
 	logger.DebugContext(startupCtx, "configured", "config", cfg)
 
 	shutdownCh := make(chan struct{})
@@ -85,11 +89,10 @@ func main() {
 		os.Exit(exitCodeBadConfig)
 	}
 
-	upstreamOptions := []upstream.Option{
+	up, err := upstream.New(
 		upstream.WithAddr(upstreamAddr),
-	}
-
-	up, err := upstream.New(upstreamOptions...)
+		upstream.WithMetrics(promRegistry),
+	)
 	if err != nil {
 		logger.ErrorContext(
 			startupCtx,
@@ -164,6 +167,7 @@ func main() {
 		proxyhandler.WithUpstream(up),
 		proxyhandler.WithLogger(logger.With("logger", "proxy")),
 		proxyhandler.WithAuthorizer(authz),
+		proxyhandler.WithMetrics(promRegistry),
 	)
 
 	x509source, err := workloadapi.NewX509Source(startupCtx, workloadapi.WithClientOptions(
@@ -206,10 +210,15 @@ func main() {
 	)
 
 	healthHandler := healthhandler.New(healthhandler.WithLogger(logger.With("logger", "health")))
+	metricsHandler := metricshandler.New(
+		metricshandler.WithLogger(logger.With("logger", "metrics")),
+		metricshandler.WithRegistry(promRegistry),
+	)
 
 	metaSrv := metaserver.New(
 		metaserver.WithAddr(cfg.MetaAddr),
 		metaserver.WithHealthHandler(healthHandler),
+		metaserver.WithMetricsHandler(metricsHandler),
 	)
 
 	go func() {
@@ -244,6 +253,7 @@ func main() {
 		proxyserver.WithAddr(cfg.BindAddr),
 		proxyserver.WithProxyHandler(proxyHandler),
 		proxyserver.WithTLSConfig(tlsConfig),
+		proxyserver.WithMetrics(promRegistry),
 	)
 
 	startupCancel()

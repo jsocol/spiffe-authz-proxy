@@ -2,10 +2,10 @@
 version: "2"
 
 run:
-  timeout: 1m
+  timeout: 3m
   issues-exit-code: 1
   tests: true
-  go: "1.25"
+  go: "1.26"
   relative-path-mode: wd
 
 linters:
@@ -73,3 +73,10 @@ formatters:
         - standard
         - default
         - localmodule
+
+    golines:
+      max-len: 120
+      tab-len: 4
+      shorten-comments: false
+      reformat-tags: true
+      chain-split-dots: true
