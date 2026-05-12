@@ -61,10 +61,6 @@ jobs:
         run: |
           go mod download
 
-      - name: Warm cache
-        run: |
-          go build -trimpath -ldflags=-s -o spiffe-authz-proxy main.go
-
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
