@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -34,38 +33,20 @@ const (
 	exitCodeServerError
 )
 
+const startupTimeout = 15 * time.Second
+
 func main() {
 	ctx := context.Background()
 
-	startupTimeout := 15 * time.Second //nolint:mnd
+	logger := logutils.FromEnv()
+	slog.SetDefault(logger)
+
 	startupCtx, startupCancel := context.WithTimeout(ctx, startupTimeout)
 	cfg, err := config.FromEnv(startupCtx)
 	if err != nil {
-		fmt.Printf("could not parse configuration: %v\n", err)
+		logger.ErrorContext(startupCtx, "could not parse configuration", "error", err)
 		os.Exit(exitCodeNoConfig)
 	}
-
-	var logLevel slog.Level
-	err = logLevel.UnmarshalText([]byte(cfg.LogLevel))
-	if err != nil {
-		fmt.Printf("%s, defaulting to %s\n", err, logLevel.Level())
-	}
-
-	logOptions := &slog.HandlerOptions{
-		Level: logLevel,
-	}
-	var logHandler slog.Handler
-	switch cfg.LogFormat {
-	case "json":
-		logHandler = slog.NewJSONHandler(os.Stdout, logOptions)
-	case "text":
-		logHandler = slog.NewTextHandler(os.Stdout, logOptions)
-	default:
-		fmt.Printf("unknown log format: %s. supported values are [json, text]\n", cfg.LogFormat)
-		os.Exit(exitCodeNoConfig)
-	}
-	logger := slog.New(logHandler)
-	slog.SetDefault(logger)
 
 	promRegistry := prometheus.NewRegistry()
 

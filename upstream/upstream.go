@@ -63,7 +63,7 @@ func New(opts ...Option) (_ *Upstream, err error) {
 		reqDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Name: "upstream_http_request_duration_seconds",
 			Help: "A histogram of latencies for upstream requests.",
-		}, []string{"handler", "method"})
+		}, []string{"code", "method"})
 
 		reqInFlight := prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "upstream_http_requests_in_flight",
