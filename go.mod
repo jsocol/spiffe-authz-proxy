@@ -1,6 +1,6 @@
 module jsocol.io/spiffe-authz-proxy
 
-go 1.25.2
+go 1.26
 
 require (
 	github.com/hashicorp/hcl/v2 v2.24.0

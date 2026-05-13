@@ -43,7 +43,7 @@ jobs:
 
       - name: Run build
         run: |
-          go build -trimpath -ldflags=-s -o spiffe-authz-proxy main.go
+          go build -trimpath -ldflags=-s -o spiffe-authz-proxy cmd/proxy/main.go
 
   run-lint:
     runs-on: ubuntu-latest
