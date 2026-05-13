@@ -56,6 +56,9 @@ linters:
     - whitespace
 
   settings:
+    exhaustive:
+      default-case-required: false
+      default-signifies-exhaustive: true
     revive:
       rules:
         - name: exported

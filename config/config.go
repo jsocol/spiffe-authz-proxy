@@ -7,13 +7,16 @@ import (
 )
 
 type Config struct {
-	LogLevel    string   `env:"LOG_LEVEL, default=info"`
-	LogFormat   string   `env:"LOG_FORMAT, default=json"`
-	BindAddr    string   `env:"BIND_ADDR, default=:8443"`
-	MetaAddr    string   `env:"META_ADDR, default=:8081"`
-	WorkloadAPI string   `env:"WORKLOAD_API, default=unix:///tmp/spire-agent/public/agent.sock"`
-	AuthzConfig string   `env:"AUTHZ_CONFIG, required"`
-	Upstream    *url.URL `env:"UPSTREAM_ADDR, default=tcp://127.0.0.1:8000"`
+	LogLevel    string `env:"LOG_LEVEL, default=info"`
+	LogFormat   string `env:"LOG_FORMAT, default=json"`
+	AuthzConfig string `env:"AUTHZ_CONFIG, required"`
+	WorkloadAPI string `env:"WORKLOAD_API, default=unix:///tmp/spire-agent/public/agent.sock"`
+
+	BindAddr string   `env:"BIND_ADDR, default=:8443"`
+	MetaAddr string   `env:"META_ADDR, default=:8081"`
+	Upstream *url.URL `env:"UPSTREAM_ADDR, default=tcp://127.0.0.1:8000"`
+
+	GRPCBindAddr string `env:"GRPC_BIND_ADDR, default:11001"`
 }
 
 func (c *Config) UpstreamAddr() (net.Addr, error) {
